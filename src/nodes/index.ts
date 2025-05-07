@@ -12,7 +12,7 @@ export const initialNodes: AppNode[] = [
     data: { label: 'drag me!' },
     draggable: true,
   },
-  { id: 'c', position: { x: 100, y: 100 }, data: { label: 'poop' } },
+  { id: 'c', position: { x: 100, y: 100 }, data: { label: 'test1' } },
   {
     id: 'd',
     type: 'output',

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@xyflow/react": "^12.5.1",
+    "antd": "^5.24.9",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
