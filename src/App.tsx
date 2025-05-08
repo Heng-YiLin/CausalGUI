@@ -29,19 +29,7 @@ export default function App() {
     [setEdges]
   );
 
-  const downloadNodesAsJSON = () => {
-    const dataStr = JSON.stringify(nodes, null, 2); // Pretty-print with indentation
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-  
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "nodes.json";
-    a.click();
-  
-    URL.revokeObjectURL(url);
-  };
-  
+
   useEffect(() => {
     localStorage.setItem("cld-nodes", JSON.stringify(nodes));
   }, [nodes]);
