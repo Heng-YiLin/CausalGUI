@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import {Button, Menu, MenuProps} from "antd";
 import { AppstoreOutlined, MailOutlined, SettingOutlined } from '@ant-design/icons';
+import { BrowserRouter as Router,Route,Routes,NavLink } from "react-router";
+import DDM from "./DDM";
+import App from "../App";
 interface HeaderProps {
   brandText?: string; // Optional prop, define as needed
 }
@@ -24,12 +27,19 @@ const downloadNodesAsJSON = () => {
 
 const items: MenuItem[] = [
   {
-    label: 'Home',
+   label: (
+      <NavLink to="/">
+Home      </NavLink>
+    ),
     key: 'mail',
     icon: <AppstoreOutlined />,
   },
   {
-    label: 'Navigation Two',
+    label: (
+      <NavLink to="/DDM">
+        Direct Depedency Matrix
+      </NavLink>
+    ),
     key: 'app',
     icon: <AppstoreOutlined />,
   },
@@ -49,8 +59,15 @@ const Header: React.FC<HeaderProps> = () => {
     <div>
        <Menu  mode="horizontal" items={items} />
 
+       <Routes>
+        <Route path="/" element={<App />} />
+        <Route path="/DDM" element={<DDM />} />
+       </Routes>
+
     </div>
-   
+
+
+  
   );
 };
 

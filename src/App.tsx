@@ -18,9 +18,6 @@ const getInitialNodes = () => {
   return stored ? JSON.parse(stored) : initialNodes;
 };
 
-
-
-
 export default function App() {
   const [nodes, , onNodesChange] = useNodesState(getInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -29,25 +26,26 @@ export default function App() {
     [setEdges]
   );
 
-
   useEffect(() => {
     localStorage.setItem("cld-nodes", JSON.stringify(nodes));
   }, [nodes]);
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      nodeTypes={nodeTypes}
-      onNodesChange={onNodesChange}
-      edges={edges}
-      edgeTypes={edgeTypes}
-      onEdgesChange={onEdgesChange}
-      onConnect={onConnect}
-      fitView
-    >
-     <Background />
-      <MiniMap />
-      <Controls />
-    </ReactFlow>
+    <div style={{ height: "90%" }}>
+      <ReactFlow
+        nodes={nodes}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        edges={edges}
+        edgeTypes={edgeTypes}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        fitView
+      >
+        <Background />
+        <MiniMap />
+        <Controls />
+      </ReactFlow>
+    </div>
   );
 }
