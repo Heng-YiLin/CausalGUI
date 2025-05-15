@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React from "react";
 import {Button, Menu, MenuProps} from "antd";
 import { AppstoreOutlined, MailOutlined, SettingOutlined } from '@ant-design/icons';
 import { BrowserRouter as Router,Route,Routes,NavLink } from "react-router";
-import DDM from "./DDM";
+import DDM from "./DDM"
 import App from "../App";
 interface HeaderProps {
   brandText?: string; // Optional prop, define as needed
@@ -38,6 +38,15 @@ Home      </NavLink>
     label: (
       <NavLink to="/DDM">
         Direct Depedency Matrix
+      </NavLink>
+    ),
+    key: 'app',
+    icon: <AppstoreOutlined />,
+  },
+    {
+    label: (
+      <NavLink to="/DDM">
+        Factor Class Graph
       </NavLink>
     ),
     key: 'app',
