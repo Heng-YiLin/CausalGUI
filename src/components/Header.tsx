@@ -1,13 +1,12 @@
 import React from "react";
-import {Button, Menu, MenuProps} from "antd";
-import { AppstoreOutlined, MailOutlined, SettingOutlined } from '@ant-design/icons';
-import { BrowserRouter as Router,Route,Routes,NavLink } from "react-router";
-import DDM from "./DDM"
-import App from "../App";
+import { Button, MenuProps } from "antd";
+
+import { Link } from "react-router-dom"; // Link component for navigation
+
 interface HeaderProps {
   brandText?: string; // Optional prop, define as needed
 }
-type MenuItem = Required<MenuProps>['items'][number];
+type MenuItem = Required<MenuProps>["items"][number];
 
 const nodes = JSON.parse(localStorage.getItem("cld-nodes") || "[]");
 
@@ -23,60 +22,25 @@ const downloadNodesAsJSON = () => {
 
   URL.revokeObjectURL(url);
 };
-
-
-const items: MenuItem[] = [
-  {
-   label: (
-      <NavLink to="/">
-Home      </NavLink>
-    ),
-    key: 'mail',
-    icon: <AppstoreOutlined />,
-  },
-  {
-    label: (
-      <NavLink to="/DDM">
-        Direct Depedency Matrix
-      </NavLink>
-    ),
-    key: 'app',
-    icon: <AppstoreOutlined />,
-  },
-    {
-    label: (
-      <NavLink to="/DDM">
-        Factor Class Graph
-      </NavLink>
-    ),
-    key: 'app',
-    icon: <AppstoreOutlined />,
-  },
-  {
-    label: (
-      <Button type="primary" size="small" onClick={downloadNodesAsJSON}>
-        Download
-      </Button>
-    ),
-    key: 'download-button',
-    disabled: true, // Prevents it from acting as a selectable menu item
-  },
-];
-
 const Header: React.FC<HeaderProps> = () => {
   return (
-    <div>
-       <Menu  mode="horizontal" items={items} />
-
-       <Routes>
-        <Route path="/" element={<App />} />
-        <Route path="/DDM" element={<DDM />} />
-       </Routes>
-
-    </div>
-
-
-  
+   <nav className="sticky top-0 z-30 w-full shadow-md">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center py-4">
+          <div className="text-2xl font-bold text-gray-900">
+            <a href="#">MyLogo</a>
+          </div>
+          <div className="flex space-x-6">
+            <Link to="/">Home</Link>
+            <Link to="/DDM">Direct Dependency Matrix</Link>
+            <Link to="/FactorClassGraph">Factor Class Graph</Link>
+            <Button type="primary" size="small" onClick={downloadNodesAsJSON}>
+              Download
+            </Button>
+          </div>
+        </div>
+      </div>
+    </nav>
   );
 };
 
