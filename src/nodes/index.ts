@@ -4,17 +4,17 @@ import { PositionLoggerNode } from './PositionLoggerNode';
 import { AppNode } from './types';
 
 export const initialNodes: AppNode[] = [
-  { id: 'a', type: 'position-logger', position: { x: 0, y: 0 }, data: { label: 'wire' } },
+  { id: '1', type: 'position-logger', position: { x: 0, y: 0 }, data: { label: 'wire' } },
   {
-    id: 'b',
+    id: '2',
     type: 'position-logger',
     position: { x: -100, y: 100 },
     data: { label: 'drag me!' },
     draggable: true,
   },
-  { id: 'c', position: { x: 100, y: 100 }, data: { label: 'test1' } },
+  { id: '3', position: { x: 100, y: 100 }, data: { label: 'test1' } },
   {
-    id: 'd',
+    id: '4',
     type: 'output',
     position: { x: 0, y: 200 },
     data: { label: 'with dsadasd Flow' },
