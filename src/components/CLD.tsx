@@ -12,91 +12,112 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { initialNodes, nodeTypes } from "../nodes";
-import { initialEdges, edgeTypes } from "../edges";
-import { useDnD, DnDProvider } from "./DnDContext";
+import { initialEdges } from "../edges";
+import { useDnD } from "./DnDContext";
 import Sidebar from "./Sidebar";
 
-const getInitialNodes = () => {
+// 1️⃣ We'll define this variable to be replaced later inside the component
+let globalHandleNodeLabelChange: any = () => {};
 
+function getInitialNodes() {
   const stored = localStorage.getItem("cld-nodes");
-      console.log(stored);
+  const parsed = stored ? JSON.parse(stored) : initialNodes;
 
-  return stored ? JSON.parse(stored) : initialNodes;
-
-};
+  return parsed.map((node: any) => ({
+    ...node,
+    data: {
+      ...node.data,
+      onChange: globalHandleNodeLabelChange,
+    },
+  }));
+}
 
 export default function CLD() {
   const reactFlowWrapper = useRef(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState(getInitialNodes());
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const { screenToFlowPosition } = useReactFlow();
   const [type] = useDnD();
+
+  const handleNodeLabelChange = useCallback((id: string, value: string) => {
+    setNodes((nodes) =>
+      nodes.map((node) =>
+        node.id === id
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                label: value,
+                onChange: handleNodeLabelChange,
+              },
+            }
+          : node
+      )
+    );
+  }, []);
+
+  // 2️⃣ Assign our callback to the outer-scoped variable
+  globalHandleNodeLabelChange = handleNodeLabelChange;
+
+  // 3️⃣ Now getInitialNodes will work correctly here
+  const [nodes, setNodes, onNodesChange] = useNodesState(getInitialNodes());
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  const getId = (existingNodes: any[]) => {
+    const maxId =
+      existingNodes.length > 0
+        ? Math.max(...existingNodes.map((node) => parseInt(node.id, 10)))
+        : 0;
+    return (maxId + 1).toString();
+  };
 
   const onConnect: OnConnect = useCallback(
     (connection) => setEdges((edges) => addEdge(connection, edges)),
     [setEdges]
   );
-  const getId = (existingNodes: any[]) => {
-    // Get the max id from existing nodes (parse as integers), or start from 0 if none exist
-    const maxId =
-      existingNodes.length > 0
-        ? Math.max(...existingNodes.map((node) => parseInt(node.id, 10)))
-        : 0;
-    return (maxId + 1).toString(); // Return the next ID as a string
-  };
 
-  const onDragOver = useCallback(
-    (event: {
-      preventDefault: () => void;
-      dataTransfer: { dropEffect: string };
-    }) => {
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
-    },
-    []
-  );
+  const onDragOver = useCallback((event: { preventDefault: () => void; dataTransfer: { dropEffect: string; }; }) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
   const onDrop = useCallback(
-    (event: {
-      dataTransfer: any;
-      preventDefault: () => void;
-      clientX: any;
-      clientY: any;
-    }) => {
+    (event: { preventDefault: () => void; dataTransfer: { getData: (arg0: string) => any; }; clientX: any; clientY: any; }) => {
       event.preventDefault();
       const nodeType = event.dataTransfer.getData("text/plain");
 
-      console.log(nodeType);
-      // check if the dropped element is valid
       if (!nodeType) {
         console.warn("❌ No node type found in dataTransfer");
-
         return;
       }
+
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
+
       const newNode = {
         id: getId(nodes),
         type: nodeType,
         position,
-        data: { label: `${type} node` },
+        data: {
+          label: `${type} node`,
+          onChange: handleNodeLabelChange,
+        },
       };
 
       setNodes((nds) => {
         const updatedNodes = [...nds, newNode];
-        localStorage.setItem("cld-nodes", JSON.stringify(updatedNodes)); // Save to localStorage immediately
+        localStorage.setItem("cld-nodes", JSON.stringify(updatedNodes));
         return updatedNodes;
       });
     },
-    [screenToFlowPosition, type, nodes]
+    [screenToFlowPosition, type, nodes, handleNodeLabelChange]
   );
 
   const onNodesDelete = useCallback(
     (deleted: any[]) => {
-      setEdges(deleted.reduce((acc, node) => {}, edges));
+      setEdges(deleted.reduce((acc, node) => acc, edges));
     },
-    [nodes, edges]
+    [edges]
   );
 
   useEffect(() => {
@@ -105,12 +126,10 @@ export default function CLD() {
 
   return (
     <div className="flex" style={{ height: "100%" }}>
-      {/* Sidebar */}
       <div className="w-20 bg-gray-100 p-4">
         <Sidebar />
       </div>
 
-      {/* ReactFlow */}
       <div style={{ height: "90%", flexGrow: 1 }} ref={reactFlowWrapper}>
         <ReactFlow
           nodes={nodes}
