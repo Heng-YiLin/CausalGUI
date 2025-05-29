@@ -15,22 +15,9 @@ import { initialNodes, nodeTypes } from "../nodes";
 import { initialEdges } from "../edges";
 import { useDnD } from "./DnDContext";
 import Sidebar from "./Sidebar";
+import CustomEdge from "../edges/CustomEdge";
 
-// 1️⃣ We'll define this variable to be replaced later inside the component
-let globalHandleNodeLabelChange: any = () => {};
-
-function getInitialNodes() {
-  const stored = localStorage.getItem("cld-nodes");
-  const parsed = stored ? JSON.parse(stored) : initialNodes;
-
-  return parsed.map((node: any) => ({
-    ...node,
-    data: {
-      ...node.data,
-      onChange: globalHandleNodeLabelChange,
-    },
-  }));
-}
+import "./CLDTheme.css";
 
 export default function CLD() {
   const reactFlowWrapper = useRef(null);
@@ -54,12 +41,24 @@ export default function CLD() {
     );
   }, []);
 
-  // 2️⃣ Assign our callback to the outer-scoped variable
-  globalHandleNodeLabelChange = handleNodeLabelChange;
+  const getInitialNodes = useCallback(() => {
+    const stored = localStorage.getItem("cld-nodes");
+    const parsed = stored ? JSON.parse(stored) : initialNodes;
 
-  // 3️⃣ Now getInitialNodes will work correctly here
+    return parsed.map((node: any) => ({
+      ...node,
+      data: {
+        ...node.data,
+        onChange: handleNodeLabelChange,
+      },
+    }));
+  }, [handleNodeLabelChange]);
+
   const [nodes, setNodes, onNodesChange] = useNodesState(getInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const edgeTypes = {
+    custom: CustomEdge,
+  };
 
   const getId = (existingNodes: any[]) => {
     const maxId =
@@ -74,13 +73,24 @@ export default function CLD() {
     [setEdges]
   );
 
-  const onDragOver = useCallback((event: { preventDefault: () => void; dataTransfer: { dropEffect: string; }; }) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  }, []);
+  const onDragOver = useCallback(
+    (event: {
+      preventDefault: () => void;
+      dataTransfer: { dropEffect: string };
+    }) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+    },
+    []
+  );
 
   const onDrop = useCallback(
-    (event: { preventDefault: () => void; dataTransfer: { getData: (arg0: string) => any; }; clientX: any; clientY: any; }) => {
+    (event: {
+      preventDefault: () => void;
+      dataTransfer: { getData: (arg0: string) => any };
+      clientX: any;
+      clientY: any;
+    }) => {
       event.preventDefault();
       const nodeType = event.dataTransfer.getData("text/plain");
 
@@ -130,10 +140,11 @@ export default function CLD() {
         <Sidebar />
       </div>
 
-      <div style={{ height: "90%", flexGrow: 1 }} ref={reactFlowWrapper}>
+      <div style={{ height: "90%", flexGrow: 1 }} className=".react-flow"ref={reactFlowWrapper}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodesDelete={onNodesDelete}

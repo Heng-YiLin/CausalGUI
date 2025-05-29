@@ -1,18 +1,10 @@
-import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { useCallback } from 'react';
-import type { PositionLoggerNode as PositionLoggerNodeData } from './types';
+import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { useCallback } from "react";
+import type { PositionLoggerNode as PositionLoggerNodeData } from "./types";
 
 interface PositionLoggerNodeProps extends NodeProps<PositionLoggerNodeData> {}
 
-export function PositionLoggerNode({
-  id,
-  positionAbsoluteX,
-  positionAbsoluteY,
-  data,
-}: PositionLoggerNodeProps) {
-  const x = `${Math.round(positionAbsoluteX)}px`;
-  const y = `${Math.round(positionAbsoluteY)}px`;
-
+export function PositionLoggerNode({ id, data }: PositionLoggerNodeProps) {
   const onChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       if (data.onChange) {
@@ -23,12 +15,28 @@ export function PositionLoggerNode({
   );
 
   return (
-    <div className="react-flow__node-default p-2 border rounded shadow bg-white">
+    <div className=" rounded flex justify-center">
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{
+          position: "absolute",
+          width: "100%",
+          height: "100%",
+          top: 0,
+          left: 0,
+          background: "transparent",
+          border: "none",
+          zIndex: 10,
+        }}
+        isConnectable={true}
+      />
       <input
-        className="nodrag border p-1 rounded w-full mb-2"
-        value={data.label ?? ''}
+        style={{ width: `${(data.label?.length ?? 1) + 1}ch` }}
+        className="rounded w-full text-center"
+        value={data.label ?? ""}
         onChange={onChange}
-        placeholder="Enter label"
+        placeholder="Enter Variable Name"
       />
 
       <Handle type="source" position={Position.Bottom} />
