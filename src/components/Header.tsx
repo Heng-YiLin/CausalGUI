@@ -1,8 +1,7 @@
 import React from "react";
 import { Button, MenuProps } from "antd";
-
+import Logo from "../assets/logo.png";
 import { Link } from "react-router-dom"; // Link component for navigation
-
 interface HeaderProps {
   brandText?: string; // Optional prop, define as needed
 }
@@ -24,14 +23,15 @@ const downloadNodesAsJSON = () => {
 };
 const Header: React.FC<HeaderProps> = () => {
   return (
-   <nav className="sticky top-0 z-30 w-full shadow-md">
+    <nav className="sticky top-0 z-30 w-full shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           <div className="text-2xl font-bold text-gray-900">
-            <a href="#">MyLogo</a>
+            <Link to="/">
+              <img src={Logo} alt="Logo"></img>
+            </Link>
           </div>
           <div className="flex space-x-6">
-            <Link to="/">Home</Link>
             <Link to="/DDM">Direct Dependency Matrix</Link>
             <Link to="/FactorClassGraph">Factor Class Graph</Link>
             <Button type="primary" size="small" onClick={downloadNodesAsJSON}>

@@ -9,6 +9,7 @@ import {
   useEdgesState,
   type OnConnect,
   useReactFlow,
+  MarkerType,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { initialNodes, nodeTypes } from "../nodes";
@@ -16,6 +17,8 @@ import { initialEdges } from "../edges";
 import { useDnD } from "./DnDContext";
 import Sidebar from "./Sidebar";
 import CustomEdge from "../edges/CustomEdge";
+import CustomConnectionLine from "../edges/CustomConnectionLine";
+import FloatingEdge from "../edges/FloatingEdge";
 
 import "./CLDTheme.css";
 
@@ -57,6 +60,8 @@ export default function CLD() {
   const [nodes, setNodes, onNodesChange] = useNodesState(getInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const edgeTypes = {
+    floating: FloatingEdge,
+
     custom: CustomEdge,
   };
 
@@ -69,7 +74,20 @@ export default function CLD() {
   };
 
   const onConnect: OnConnect = useCallback(
-    (connection) => setEdges((edges) => addEdge(connection, edges)),
+    (connection) =>
+      setEdges((edges) =>
+        addEdge(
+          {
+            ...connection,
+            type: "floating", // ✅ This is the fix
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: "#b1b1b7",
+            },
+          },
+          edges
+        )
+      ),
     [setEdges]
   );
 
@@ -84,6 +102,13 @@ export default function CLD() {
     []
   );
 
+  const defaultEdgeOptions = {
+    type: "floating",
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: "#b1b1b7",
+    },
+  };
   const onDrop = useCallback(
     (event: {
       preventDefault: () => void;
@@ -132,6 +157,7 @@ export default function CLD() {
 
   useEffect(() => {
     localStorage.setItem("cld-nodes", JSON.stringify(nodes));
+    console.log(edges);
   }, [nodes]);
 
   return (
@@ -140,7 +166,11 @@ export default function CLD() {
         <Sidebar />
       </div>
 
-      <div style={{ height: "90%", flexGrow: 1 }} className=".react-flow"ref={reactFlowWrapper}>
+      <div
+        style={{ height: "90%", flexGrow: 1 }}
+        className=".react-flow"
+        ref={reactFlowWrapper}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -148,10 +178,12 @@ export default function CLD() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodesDelete={onNodesDelete}
+          connectionLineComponent={CustomConnectionLine}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
           onDrop={onDrop}
           onDragOver={onDragOver}
+          defaultEdgeOptions={defaultEdgeOptions}
           fitView
         >
           <Background />

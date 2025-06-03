@@ -25,5 +25,4 @@ export const initialNodes: AppNode[] = [
 
 export const nodeTypes = {
   'position-logger': PositionLoggerNode,
-  // Add any of your custom nodes here!
 } satisfies NodeTypes;
