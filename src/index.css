@@ -19,7 +19,7 @@ body,
 
 .customNodeBody {
   width: 150px;
-  height: 80px;
+  height: 50px;
   position: relative;
   border-radius: 10px;
   display: flex;

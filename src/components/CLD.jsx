@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react";
+import React, { useEffect,useCallback, useRef } from "react";
 
 import {
   Background,
@@ -17,29 +17,6 @@ import FloatingEdge from "../edges/FloatingEdge";
 import CustomConnectionLine from "../edges/CustomConnectionLine";
 import Sidebar from "./Sidebar";
 import { useDnD } from "./DnDContext";
-
-const initialNodes = [
-  {
-    id: "1",
-    type: "custom",
-    position: { x: 0, y: 0 },
-  },
-  {
-    id: "2",
-    type: "custom",
-    position: { x: 250, y: 320 },
-  },
-  {
-    id: "3",
-    type: "custom",
-    position: { x: 40, y: 300 },
-  },
-  {
-    id: "4",
-    type: "custom",
-    position: { x: 300, y: 0 },
-  },
-];
 
 const initialEdges = [];
 
@@ -67,11 +44,59 @@ let id = 5;
 const getId = () => `node_${id++}`;
 
 const CLD = () => {
+  const savedNodes = localStorage.getItem("savedNodes");
+
   const wrapperRef = useRef(null);
   const { screenToFlowPosition } = useReactFlow();
   const [type] = useDnD();
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const handleNodeLabelChange = useCallback((id, value) => {
+    setNodes((nodes) =>
+      nodes.map((node) =>
+        node.id === id
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                label: value,
+                onChange: handleNodeLabelChange,
+              },
+            }
+          : node
+      )
+    );
+  }, []);
+  const initialNodes = savedNodes
+    ? JSON.parse(savedNodes)
+    : [
+        {
+          id: "1",
+          type: "custom",
+          data: { label: "Node 1" },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "2",
+          type: "custom",
+          data: { label: "Node 2" },
+          position: { x: 250, y: 320 },
+        },
+      ];
+  const injectOnChange = useCallback(
+    (nodes, handler) =>
+      nodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          onChange: handler,
+        },
+      })),
+    []
+  );
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(
+    injectOnChange(initialNodes, handleNodeLabelChange)
+  );
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   const onConnect = useCallback(
@@ -97,7 +122,10 @@ const CLD = () => {
         id: getId(),
         type,
         position,
-        data: { label: `${type} node` },
+        data: {
+          label: `variable name`,
+          onChange: handleNodeLabelChange, // Inject handler here
+        },
       };
 
       setNodes((nds) => nds.concat(newNode));
@@ -105,6 +133,9 @@ const CLD = () => {
     [screenToFlowPosition, type, setNodes]
   );
 
+  useEffect(() => {
+    localStorage.setItem("savedNodes", JSON.stringify(nodes));
+  }, [nodes]);
   return (
     <div className="flex" style={{ height: "100%" }}>
       <div className="w-20 bg-gray-100 p-4">
