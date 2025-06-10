@@ -16,19 +16,13 @@ const DnDComponent = () => {
     <aside>
       <div
         className="dndnode input"
-        onDragStart={handleDragStart('position-logger')}
+        onDragStart={handleDragStart('custom')}
         draggable
       >
-        Input Node
+        Add Node
       </div>
 
-      <div
-        className="dndnode position-logger"
-        onDragStart={handleDragStart('position-logger')}
-        draggable
-      >
-        Position Logger Node
-      </div>
+   
     </aside>
   );
 };
