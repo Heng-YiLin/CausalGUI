@@ -1,7 +1,6 @@
-import type { Edge, EdgeTypes } from "@xyflow/react";
 import { MarkerType } from "@xyflow/react";
 
-export const initialEdges: Edge[] = [
+export const initialEdges = [
   {
     id: "1->3",
     source: "1",
@@ -36,4 +35,4 @@ export const initialEdges: Edge[] = [
 
 export const edgeTypes = {
   // Add your custom edge types here!
-} satisfies EdgeTypes;
+};

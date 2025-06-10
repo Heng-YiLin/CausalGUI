@@ -1,9 +1,7 @@
-import type { NodeTypes } from '@xyflow/react';
 
 import { PositionLoggerNode } from './PositionLoggerNode';
-import { AppNode } from './types';
 
-export const initialNodes: AppNode[] = [
+export const initialNodes = [
   { id: '1', type: 'position-logger', position: { x: 0, y: 0 }, data: { label: 'wire', onChange: () => {} } },
   {
     id: '2',
@@ -25,4 +23,4 @@ export const initialNodes: AppNode[] = [
 
 export const nodeTypes = {
   'position-logger': PositionLoggerNode,
-} satisfies NodeTypes;
+};

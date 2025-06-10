@@ -10,7 +10,7 @@ export default function CustomEdge({
   style = {},
   markerEnd,
   data,
-}: any) {
+}) {
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,

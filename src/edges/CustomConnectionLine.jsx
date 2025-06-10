@@ -8,7 +8,7 @@ export default function CustomConnectionLine({
   toY,
   fromPosition = "right",
   toPosition = "left",
-}: any) {
+}) {
   const [edgePath] = getBezierPath({
     sourceX: fromX,
     sourceY: fromY,

@@ -1,19 +1,16 @@
 import {
   Handle,
   Position,
-  type NodeProps,
   useConnection,
 } from "@xyflow/react";
 import { useCallback } from "react";
-import type { PositionLoggerNode as PositionLoggerNodeData } from "./types";
 
-interface PositionLoggerNodeProps extends NodeProps<PositionLoggerNodeData> {}
 
 export function PositionLoggerNode({
   id,
   data,
   isConnectable,
-}: PositionLoggerNodeProps) {
+}) {
   const connection = useConnection();
   const isConnecting = connection.inProgress;
   const isTarget = isConnecting && connection.fromNode.id !== id;
@@ -21,7 +18,7 @@ export function PositionLoggerNode({
   const label = isTarget ? "Drop here" : "Drag to connect";
 
   const onChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
+    (event) => {
       if (data.onChange) {
         data.onChange(id, event.target.value);
       }

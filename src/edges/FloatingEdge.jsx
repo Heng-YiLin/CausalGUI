@@ -9,7 +9,7 @@ export default function FloatingEdge({
   sourcePosition = "right",
   targetPosition = "left",
   markerEnd,
-}: any) {
+}) {
   const [edgePath] = getBezierPath({
     sourceX,
     sourceY,

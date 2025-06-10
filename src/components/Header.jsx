@@ -1,11 +1,6 @@
 import React from "react";
-import { Button, MenuProps } from "antd";
 import Logo from "../assets/logo.png";
 import { Link } from "react-router-dom"; // Link component for navigation
-interface HeaderProps {
-  brandText?: string; // Optional prop, define as needed
-}
-type MenuItem = Required<MenuProps>["items"][number];
 
 const nodes = JSON.parse(localStorage.getItem("cld-nodes") || "[]");
 
@@ -21,7 +16,7 @@ const downloadNodesAsJSON = () => {
 
   URL.revokeObjectURL(url);
 };
-const Header: React.FC<HeaderProps> = () => {
+const Header = () => {
   return (
     <nav className="sticky top-0 z-30 w-full shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -34,9 +29,12 @@ const Header: React.FC<HeaderProps> = () => {
           <div className="flex space-x-6">
             <Link to="/DDM">Direct Dependency Matrix</Link>
             <Link to="/FactorClassGraph">Factor Class Graph</Link>
-            <Button type="primary" size="small" onClick={downloadNodesAsJSON}>
+            <button
+              onClick={downloadNodesAsJSON}
+              className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded"
+            >
               Download
-            </Button>
+            </button>
           </div>
         </div>
       </div>
