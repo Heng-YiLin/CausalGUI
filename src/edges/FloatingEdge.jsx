@@ -1,30 +1,38 @@
-import { BaseEdge, getBezierPath } from "@xyflow/react";
-
-export default function FloatingEdge({
-  id,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  sourcePosition = "right",
-  targetPosition = "left",
-  markerEnd,
-}) {
+import { getBezierPath, useInternalNode } from '@xyflow/react';
+ 
+import { getEdgeParams } from './initalElements.js';
+ 
+function FloatingEdge({ id, source, target, markerEnd, style }) {
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
+ 
+  if (!sourceNode || !targetNode) {
+    return null;
+  }
+ 
+  const { sx, sy, tx, ty, sourcePos, targetPos } = getEdgeParams(
+    sourceNode,
+    targetNode,
+  );
+ 
   const [edgePath] = getBezierPath({
-    sourceX,
-    sourceY,
-    targetX,
-    targetY,
-    sourcePosition,
-    targetPosition,
+    sourceX: sx,
+    sourceY: sy,
+    sourcePosition: sourcePos,
+    targetPosition: targetPos,
+    targetX: tx,
+    targetY: ty,
   });
-
+ 
   return (
-    <BaseEdge
+    <path
       id={id}
-      path={edgePath}
+      className="react-flow__edge-path"
+      d={edgePath}
       markerEnd={markerEnd}
-      style={{ stroke: "#333", strokeWidth: 2 }}
+      style={style}
     />
   );
 }
+ 
+export default FloatingEdge;
