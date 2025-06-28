@@ -1,4 +1,4 @@
-import React, { useEffect,useCallback, useRef } from "react";
+import React, { useEffect, useCallback, useRef } from "react";
 
 import {
   Background,
@@ -45,6 +45,7 @@ const getId = () => `node_${id++}`;
 
 const CLD = () => {
   const savedNodes = localStorage.getItem("savedNodes");
+  const savedEdges = localStorage.getItem("savedEdges");
 
   const wrapperRef = useRef(null);
   const { screenToFlowPosition } = useReactFlow();
@@ -97,10 +98,22 @@ const CLD = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState(
     injectOnChange(initialNodes, handleNodeLabelChange)
   );
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(
+    savedEdges ? JSON.parse(savedEdges) : initialEdges
+  );
 
   const onConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
+    (params) =>
+      setEdges((eds) =>
+        addEdge(
+          {
+            ...params,
+            type: "floating", // Ensure floating edge is used
+            data: { label: "" }, // Default label (can be '-', '' etc.)
+          },
+          eds
+        )
+      ),
     [setEdges]
   );
 
@@ -136,6 +149,9 @@ const CLD = () => {
   useEffect(() => {
     localStorage.setItem("savedNodes", JSON.stringify(nodes));
   }, [nodes]);
+  useEffect(() => {
+    localStorage.setItem("savedEdges", JSON.stringify(edges));
+  }, [edges]);
   return (
     <div className="flex" style={{ height: "100%" }}>
       <div className="w-20 bg-gray-100 p-4">

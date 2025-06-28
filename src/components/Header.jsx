@@ -1,11 +1,11 @@
 import React from "react";
 import Logo from "../assets/logo.png";
-import { Link } from "react-router-dom"; // Link component for navigation
-
-const nodes = JSON.parse(localStorage.getItem("cld-nodes") || "[]");
+import { Link } from "react-router-dom";
 
 const downloadNodesAsJSON = () => {
-  const dataStr = JSON.stringify(nodes, null, 2); // Pretty-print with indentation
+  // Read latest data at time of click
+  const nodes = JSON.parse(localStorage.getItem("savedNodes") || "[]");
+  const dataStr = JSON.stringify(nodes, null, 2);
   const blob = new Blob([dataStr], { type: "application/json" });
   const url = URL.createObjectURL(blob);
 
@@ -16,6 +16,7 @@ const downloadNodesAsJSON = () => {
 
   URL.revokeObjectURL(url);
 };
+
 const Header = () => {
   return (
     <nav className="sticky top-0 z-30 w-full shadow-md">
@@ -23,7 +24,7 @@ const Header = () => {
         <div className="flex justify-between items-center py-4">
           <div className="text-2xl font-bold text-gray-900">
             <Link to="/">
-              <img src={Logo} alt="Logo"></img>
+              <img src={Logo} alt="Logo" />
             </Link>
           </div>
           <div className="flex space-x-6">

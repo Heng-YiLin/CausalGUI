@@ -9,10 +9,7 @@ export default function CustomNode({ id, data }) {
 
   return (
     <div className="customNode" >
-      <div
-        className="customNodeBody"
-       
-      >
+      <div className="customNodeBody" >
         {!connection.inProgress && (
           <Handle
             className="customHandle"
@@ -36,15 +33,20 @@ export default function CustomNode({ id, data }) {
             name="text"
             onChange={(e) => data?.onChange?.(id, e.target.value)}
             className="nodrag"
+            value={data?.label || ""}
             style={{
               fontSize: 12,
-              padding: "2px 4px",
-              borderRadius: 4,
+              border: "1px solid #aaa",
+              borderRadius: 15,
+              background: "white",
               textAlign: "center",
-              alignItems: "center",
+              padding: 0, // no horizontal padding
+              margin: 0,
+              width: "auto",
+              minWidth: "1ch",
               borderWidth: 1,
             }}
-            value={data?.label || ""}
+            size={(data?.label || "").length || 1}
           />
         </div>
       </div>
