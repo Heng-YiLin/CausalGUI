@@ -68,12 +68,12 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
       edges.map((edge) =>
         edge.id === id
           ? {
-              ...edge,
-              data: {
-                ...edge.data,
-                [field]: value,
-              },
-            }
+            ...edge,
+            data: {
+              ...edge.data,
+              [field]: value,
+            },
+          }
           : edge
       )
     );
@@ -104,114 +104,148 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
       />
 
       {(editing || influence || control) && (
-        <>
-          <foreignObject
-            width={100}
-            height={40}
-            x={labelPos.x - 50}
-            y={labelPos.y - 20}
-            requiredExtensions="http://www.w3.org/1999/xhtml"
-          >
-            <div
-              style={{
-                fontSize: 10,
-                background: "white",
-                padding: "2px 4px",
-                display: "inline-flex",
-                gap: "4px",
-                borderRadius: 3,
-                boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {editing ? (
-                <>
-                  <label>
-                    I:
-                    <input
-                      value={influence}
-                      onChange={(e) => {
-                        if (/^-?\d*\.?\d*$/.test(e.target.value)) {
-                          updateEdgeData("influence", e.target.value);
-                        }
-                      }}
-                      onBlur={handleBlur}
-                      className="nodrag"
-                      style={{
-                        width: 30,
-                        fontSize: 10,
-                        padding: "1px 4px",
-                        borderRadius: 3,
-                        border: "1px solid #aaa",
-                      }}
-                    />
-                  </label>
-                  <label>
-                    C:
-                    <input
-                      value={control}
-                      onChange={(e) => {
-                        if (/^-?\d*\.?\d*$/.test(e.target.value)) {
-                          updateEdgeData("control", e.target.value);
-                        }
-                      }}
-                      onBlur={handleBlur}
-                      className="nodrag"
-                      style={{
-                        width: 30,
-                        fontSize: 10,
-                        padding: "1px 4px",
-                        borderRadius: 3,
-                        border: "1px solid #aaa",
-                      }}
-                    />
-                  </label>
-                </>
-              ) : (
-                <div style={{ display: "flex", gap: 4 }}>
-                  <div onClick={handleEdgeClick}>I: {influence}</div>
-                  <div onClick={handleEdgeClick}>C: {control}</div>
-                </div>
-              )}
-            </div>
-          </foreignObject>
-
-          {/* Draggable handle that adjusts offset */}
-          <circle
-            cx={handleX}
-            cy={handleY}
-            r={7}
-            fill="#fff"
-            stroke="#333"
-            strokeWidth={1.5}
-            style={{ cursor: "grab", pointerEvents: "all" }}
-            onPointerDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const startX = e.clientX;
-              const startY = e.clientY;
-              const startOffset = offset;
-
-              const onMove = (moveEvent) => {
-                const deltaX = moveEvent.clientX - startX;
-                const deltaY = moveEvent.clientY - startY;
-                const dot = deltaX * perpX + deltaY * perpY;
-                updateEdgeData("offset", startOffset + dot);
-              };
-
-              const onUp = () => {
-                window.removeEventListener("pointermove", onMove);
-                window.removeEventListener("pointerup", onUp);
-              };
-
-              window.addEventListener("pointermove", onMove);
-              window.addEventListener("pointerup", onUp);
+        <foreignObject
+          width={100}
+          height={40}
+          x={labelPos.x - 50}
+          y={labelPos.y - 20}
+          requiredExtensions="http://www.w3.org/1999/xhtml"
+        >
+          <div
+            style={{
+              fontSize: 10,
+              background: "white",
+              padding: "2px 4px",
+              display: "inline-flex",
+              gap: "4px",
+              borderRadius: 3,
+              boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: editing ? "text" : "grab",
+              minWidth: 30,
+              minHeight: 20,
             }}
-          />
-        </>
+            onPointerDown={(e) => {
+              if (!editing) {
+                e.preventDefault();
+                e.stopPropagation();
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const startOffset = offset;
+
+                const onMove = (moveEvent) => {
+                  const deltaX = moveEvent.clientX - startX;
+                  const deltaY = moveEvent.clientY - startY;
+                  const dot = deltaX * perpX + deltaY * perpY;
+                  updateEdgeData("offset", startOffset + dot);
+                };
+
+                const onUp = () => {
+                  window.removeEventListener("pointermove", onMove);
+                  window.removeEventListener("pointerup", onUp);
+                };
+
+                window.addEventListener("pointermove", onMove);
+                window.addEventListener("pointerup", onUp);
+              }
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditing(true);
+            }}
+          >
+            {editing ? (
+              <>
+                <label>
+                  I:
+                  <input
+                    value={influence}
+                    onChange={(e) => {
+                      if (/^-?\d*\.?\d*$/.test(e.target.value)) {
+                        updateEdgeData("influence", e.target.value);
+                      }
+                    }}
+                    onBlur={handleBlur}
+                    className="nodrag"
+                    style={{
+                      width: 30,
+                      fontSize: 10,
+                      padding: "1px 4px",
+                      borderRadius: 3,
+                      border: "1px solid #aaa",
+                    }}
+                  />
+                </label>
+                <label>
+                  C:
+                  <input
+                    value={control}
+                    onChange={(e) => {
+                      if (/^-?\d*\.?\d*$/.test(e.target.value)) {
+                        updateEdgeData("control", e.target.value);
+                      }
+                    }}
+                    onBlur={handleBlur}
+                    className="nodrag"
+                    style={{
+                      width: 30,
+                      fontSize: 10,
+                      padding: "1px 4px",
+                      borderRadius: 3,
+                      border: "1px solid #aaa",
+                    }}
+                  />
+                </label>
+              </>
+            ) : (
+              <div style={{ display: "flex", gap: 4 }}>
+                <div>I: {influence}</div>
+                <div>C: {control}</div>
+              </div>
+            )}
+          </div>
+        </foreignObject>
       )}
+      {editing && (
+        <circle
+          cx={labelPos.x - 60}  // 10px left of the label box (label width is ~100)
+          cy={labelPos.y - 5}       // same vertical center
+          r={7}
+          fill="#fff"
+          stroke="#333"
+          strokeWidth={1.5}
+          style={{ cursor: "grab", pointerEvents: "all" }}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const startOffset = offset;
+
+            const onMove = (moveEvent) => {
+              const deltaX = moveEvent.clientX - startX;
+              const deltaY = moveEvent.clientY - startY;
+              const dot = deltaX * perpX + deltaY * perpY;
+              updateEdgeData("offset", startOffset + dot);
+            };
+
+            const onUp = () => {
+              window.removeEventListener("pointermove", onMove);
+              window.removeEventListener("pointerup", onUp);
+            };
+
+            window.addEventListener("pointermove", onMove);
+            window.addEventListener("pointerup", onUp);
+          }}
+        />
+      )}
+
+
+
+
+
+
     </>
   );
 }

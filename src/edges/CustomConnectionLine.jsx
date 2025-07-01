@@ -1,26 +1,20 @@
-import { getBezierPath } from "@xyflow/react";
-
-// Rendering the temp line when dragging to create new edge
 export default function CustomConnectionLine({
   fromX,
   fromY,
   toX,
   toY,
-  fromPosition = "right",
-  toPosition = "left",
 }) {
-  const [edgePath] = getBezierPath({
-    sourceX: fromX,
-    sourceY: fromY,
-    targetX: toX,
-    targetY: toY,
-    sourcePosition: fromPosition,
-    targetPosition: toPosition,
-  });
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  const radius = Math.sqrt(dx * dx + dy * dy); // You can also use a fixed value like 150
+
+  const sweepFlag = dx * dy > 0 ? 1 : 0; // Optional: flips arc direction depending on drag direction
+
+  const arcPath = `M ${fromX} ${fromY} A ${radius} ${radius} 0 0 ${sweepFlag} ${toX} ${toY}`;
 
   return (
     <path
-      d={edgePath}
+      d={arcPath}
       stroke="#b1b1b7"
       strokeWidth={2}
       fill="none"
