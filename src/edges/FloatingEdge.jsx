@@ -84,8 +84,6 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
 
   // Compute handle position and normal
   const { x: hx, y: hy, nx, ny } = getQuadraticPointAndNormal(sx, sy, cx, cy, tx, ty, t);
-  const handleX = hx + nx * 10; // slightly out from the curve
-  const handleY = hy + ny * 10;
 
   return (
     <>

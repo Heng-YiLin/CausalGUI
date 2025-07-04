@@ -1,17 +1,30 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import "@xyflow/react/dist/style.css";
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
 
-export default function DDM() {
+// Register all Community features
+ModuleRegistry.registerModules([AllCommunityModule]);
+import { AgGridReact } from "ag-grid-react";
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-alpine.css";
+
+export default function DDMGrid() {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
+  const [rowData, setRowData] = useState([]);
+  const [columnDefs, setColumnDefs] = useState([]);
 
   useEffect(() => {
     const storedNodes = localStorage.getItem("savedNodes");
     const storedEdges = localStorage.getItem("savedEdges");
 
+    let parsedNodes = [];
+    let parsedEdges = [];
+
     if (storedNodes) {
       try {
-        setNodes(JSON.parse(storedNodes));
+        parsedNodes = JSON.parse(storedNodes);
+        setNodes(parsedNodes);
       } catch (err) {
         console.error("Failed to parse nodes:", err);
       }
@@ -19,163 +32,113 @@ export default function DDM() {
 
     if (storedEdges) {
       try {
-        setEdges(JSON.parse(storedEdges));
+        parsedEdges = JSON.parse(storedEdges);
+        setEdges(parsedEdges);
       } catch (err) {
         console.error("Failed to parse edges:", err);
       }
     }
-  }, []);
 
-  const persistEdges = (updatedEdges) => {
+    if (parsedNodes.length) {
+      const cols = [
+        { headerName: "", field: "rowLabel", pinned: 'left', editable: false }
+      ];
+
+      parsedNodes.forEach((node) => {
+        cols.push(
+          { headerName: `${node.data?.label || node.id} I`, field: `${node.id}_I`, editable: true },
+          { headerName: `${node.data?.label || node.id} C`, field: `${node.id}_C`, editable: true }
+        );
+      });
+
+      setColumnDefs(cols);
+
+      const rows = parsedNodes.map((rowNode) => {
+        const row = { rowLabel: rowNode.data?.label || rowNode.id };
+
+        parsedNodes.forEach((colNode) => {
+          const edge = parsedEdges.find(e => e.source === rowNode.id && e.target === colNode.id);
+          row[`${colNode.id}_I`] = edge?.data?.influence ?? 0;
+          row[`${colNode.id}_C`] = edge?.data?.control ?? 0;
+        });
+
+        return row;
+      });
+
+      setRowData(rows);
+    }
+  }, []);
+  const handleCellChange = (params) => {
+    const { data, colDef, newValue } = params;
+    const [colNodeId, type] = colDef.field.split("_");
+    const rowNode = nodes.find(n => (n.data?.label || n.id) === data.rowLabel);
+    const rowNodeId = rowNode?.id;
+
+    if (!rowNodeId || !colNodeId || isNaN(newValue)) return;
+
+    const parsedValue = parseInt(newValue) || 0;
+
+    const existingEdge = edges.find(
+      (e) => e.source === rowNodeId && e.target === colNodeId
+    );
+
+    let updatedEdges = [...edges];
+
+    if (!existingEdge && parsedValue > 0) {
+      // Create new edge
+      updatedEdges.push({
+        id: `${rowNodeId}-${colNodeId}`,
+        source: rowNodeId,
+        target: colNodeId,
+        data: {
+          influence: type === "I" ? parsedValue : 0,
+          control: type === "C" ? parsedValue : 0,
+        },
+      });
+    } else if (existingEdge) {
+      const newInfluence =
+        type === "I" ? parsedValue : existingEdge.data.influence ?? 0;
+      const newControl =
+        type === "C" ? parsedValue : existingEdge.data.control ?? 0;
+
+      if (newInfluence === 0 && newControl === 0) {
+        // Remove edge
+        updatedEdges = updatedEdges.filter(
+          (e) => !(e.source === rowNodeId && e.target === colNodeId)
+        );
+      } else {
+        // Update edge
+        updatedEdges = updatedEdges.map((e) =>
+          e.source === rowNodeId && e.target === colNodeId
+            ? {
+              ...e,
+              data: {
+                influence: newInfluence,
+                control: newControl,
+              },
+            }
+            : e
+        );
+      }
+    }
+
     setEdges(updatedEdges);
     localStorage.setItem("savedEdges", JSON.stringify(updatedEdges));
   };
 
-  const getEdge = (source, target) =>
-    edges.find((e) => e.source === source && e.target === target);
-
-  const handleEdgeChange = (source, target, influence, control) => {
-    const existingEdge = getEdge(source, target);
-
-    if ((influence === 0 && control === 0) || (isNaN(influence) && isNaN(control))) {
-      const newEdges = edges.filter(
-        (e) => !(e.source === source && e.target === target)
-      );
-      persistEdges(newEdges);
-      return;
-    }
-
-    const newData = {
-      influence,
-      control,
-    };
-
-    if (existingEdge) {
-      const updatedEdge = { ...existingEdge, data: { ...existingEdge.data, ...newData } };
-      persistEdges(
-        edges.map((e) =>
-          e.source === source && e.target === target ? updatedEdge : e
-        )
-      );
-    } else {
-      const newEdge = {
-        id: `${source}-${target}`,
-        source,
-        target,
-        data: newData,
-      };
-      persistEdges([...edges, newEdge]);
-    }
-  };
-
   return (
     <div style={{ padding: 20 }}>
-
       {nodes.length === 0 ? (
         <p>No nodes found in localStorage.</p>
       ) : (
-        <table
-          style={{
-            borderCollapse: "collapse",
-            width: "100%",
-            tableLayout: "fixed",
-            fontSize: 14,
-          }}
-        >
-          <thead>
-            <tr>
-            <th style={{ border: "1px solid #ccc", padding: 5 }}>&nbsp;</th>
-              {nodes.map((colNode) => (
-                <th
-                  key={`group-${colNode.id}`}
-                  colSpan={2}
-                  style={{
-                    border: "1px solid #ccc",
-                    padding: 5,
-                    textAlign: "center",
-                  }}
-                >
-                  {colNode.data?.label || colNode.id}
-                </th>
-              ))}
-            </tr>
-            <tr>
-            <th style={{ border: "1px solid #ccc", padding: 5 }}>&nbsp;</th>
-              {nodes.map((colNode) => (
-                <React.Fragment key={`subhead-${colNode.id}`}>
-                  <th style={{ border: "1px solid #ccc", padding: 5, textAlign: "center" }}>I</th>
-                  <th style={{ border: "1px solid #ccc", padding: 5, textAlign: "center" }}>C</th>
-                </React.Fragment>
-              ))}
-            </tr>
-          </thead>
-
-
-          <tbody>
-            {nodes.map((rowNode) => (
-              <tr key={rowNode.id}>
-                <th
-                  style={{
-                    border: "1px solid #ccc",
-                    padding: 5,
-                    textAlign: "left",
-                  }}
-                >
-                  {rowNode.data?.label || rowNode.id}
-                </th>
-                {nodes.map((colNode) => {
-                  const edge = getEdge(rowNode.id, colNode.id);
-                  const influence = edge?.data?.influence ?? 0;
-                  const control = edge?.data?.control ?? 0;
-
-                  const type =
-                    edge?.data?.control === "C"
-                      ? "C"
-                      : edge?.data?.influenceType === "I"
-                        ? "I"
-                        : "";
-
-                  return (
-                    <>
-                      <td
-                        key={colNode.id}
-                        style={{
-                          border: "1px solid #ddd",
-                          textAlign: "center",
-                          padding: 4,
-                          fontSize: 12,
-                        }}
-                      >
-                        {(influence > 0 || control > 0) ? (
-                          <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
-                            {influence > 0 && <span>{influence}</span>}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td
-                        key={colNode.id}
-                        style={{
-                          border: "1px solid #ddd",
-                          textAlign: "center",
-                          padding: 4,
-                          fontSize: 12,
-                        }}
-                      >
-                        {(influence > 0 || control > 0) ? (
-                          <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
-                            {control > 0 && <span>{control}</span>}
-                          </div>
-                        ) : null}
-                      </td>
-                    </>
-
-
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="ag-theme-alpine" style={{ height: 600, width: "100%" }}>
+          <AgGridReact
+            rowData={rowData}
+            columnDefs={columnDefs}
+            onCellValueChanged={handleCellChange}
+            stopEditingWhenCellsLoseFocus={true}
+          />
+        </div>
       )}
     </div>
   );
