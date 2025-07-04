@@ -6,8 +6,9 @@ export default function DDM() {
   const [edges, setEdges] = useState([]);
 
   useEffect(() => {
-    // Load nodes
     const storedNodes = localStorage.getItem("savedNodes");
+    const storedEdges = localStorage.getItem("savedEdges");
+
     if (storedNodes) {
       try {
         setNodes(JSON.parse(storedNodes));
@@ -16,8 +17,6 @@ export default function DDM() {
       }
     }
 
-    // Load edges
-    const storedEdges = localStorage.getItem("savedEdges");
     if (storedEdges) {
       try {
         setEdges(JSON.parse(storedEdges));
@@ -27,38 +26,156 @@ export default function DDM() {
     }
   }, []);
 
-  return (
-    <div style={{ height: "90%", padding: 20 }}>
-      <h2>Direct Dependency Matrix Page</h2>
+  const persistEdges = (updatedEdges) => {
+    setEdges(updatedEdges);
+    localStorage.setItem("savedEdges", JSON.stringify(updatedEdges));
+  };
 
-      <h3>Nodes</h3>
+  const getEdge = (source, target) =>
+    edges.find((e) => e.source === source && e.target === target);
+
+  const handleEdgeChange = (source, target, influence, control) => {
+    const existingEdge = getEdge(source, target);
+
+    if ((influence === 0 && control === 0) || (isNaN(influence) && isNaN(control))) {
+      const newEdges = edges.filter(
+        (e) => !(e.source === source && e.target === target)
+      );
+      persistEdges(newEdges);
+      return;
+    }
+
+    const newData = {
+      influence,
+      control,
+    };
+
+    if (existingEdge) {
+      const updatedEdge = { ...existingEdge, data: { ...existingEdge.data, ...newData } };
+      persistEdges(
+        edges.map((e) =>
+          e.source === source && e.target === target ? updatedEdge : e
+        )
+      );
+    } else {
+      const newEdge = {
+        id: `${source}-${target}`,
+        source,
+        target,
+        data: newData,
+      };
+      persistEdges([...edges, newEdge]);
+    }
+  };
+
+  return (
+    <div style={{ padding: 20 }}>
+
       {nodes.length === 0 ? (
         <p>No nodes found in localStorage.</p>
       ) : (
-        <ul>
-          {nodes.map((node, index) => (
-            <li key={node.id || index}>
-              <strong>ID:</strong> {node.id} | <strong>Label:</strong>{" "}
-              {node.data?.label || "Unnamed Node"}
-            </li>
-          ))}
-        </ul>
-      )}
+        <table
+          style={{
+            borderCollapse: "collapse",
+            width: "100%",
+            tableLayout: "fixed",
+            fontSize: 14,
+          }}
+        >
+          <thead>
+            <tr>
+            <th style={{ border: "1px solid #ccc", padding: 5 }}>&nbsp;</th>
+              {nodes.map((colNode) => (
+                <th
+                  key={`group-${colNode.id}`}
+                  colSpan={2}
+                  style={{
+                    border: "1px solid #ccc",
+                    padding: 5,
+                    textAlign: "center",
+                  }}
+                >
+                  {colNode.data?.label || colNode.id}
+                </th>
+              ))}
+            </tr>
+            <tr>
+            <th style={{ border: "1px solid #ccc", padding: 5 }}>&nbsp;</th>
+              {nodes.map((colNode) => (
+                <React.Fragment key={`subhead-${colNode.id}`}>
+                  <th style={{ border: "1px solid #ccc", padding: 5, textAlign: "center" }}>I</th>
+                  <th style={{ border: "1px solid #ccc", padding: 5, textAlign: "center" }}>C</th>
+                </React.Fragment>
+              ))}
+            </tr>
+          </thead>
 
-      <h3>Edges</h3>
-      {edges.length === 0 ? (
-        <p>No edges found in localStorage.</p>
-      ) : (
-        <ul>
-          {edges.map((edge, index) => (
-            <li key={edge.id || index}>
-              <strong>From:</strong> {edge.source} → <strong>To:</strong>{" "}
-              {edge.target} | <strong>influence:</strong>{" "}
-              {edge.data.influence || "No influence"} {" | "}
-              {edge.data.control || "No control"}
-            </li>
-          ))}
-        </ul>
+
+          <tbody>
+            {nodes.map((rowNode) => (
+              <tr key={rowNode.id}>
+                <th
+                  style={{
+                    border: "1px solid #ccc",
+                    padding: 5,
+                    textAlign: "left",
+                  }}
+                >
+                  {rowNode.data?.label || rowNode.id}
+                </th>
+                {nodes.map((colNode) => {
+                  const edge = getEdge(rowNode.id, colNode.id);
+                  const influence = edge?.data?.influence ?? 0;
+                  const control = edge?.data?.control ?? 0;
+
+                  const type =
+                    edge?.data?.control === "C"
+                      ? "C"
+                      : edge?.data?.influenceType === "I"
+                        ? "I"
+                        : "";
+
+                  return (
+                    <>
+                      <td
+                        key={colNode.id}
+                        style={{
+                          border: "1px solid #ddd",
+                          textAlign: "center",
+                          padding: 4,
+                          fontSize: 12,
+                        }}
+                      >
+                        {(influence > 0 || control > 0) ? (
+                          <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
+                            {influence > 0 && <span>{influence}</span>}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td
+                        key={colNode.id}
+                        style={{
+                          border: "1px solid #ddd",
+                          textAlign: "center",
+                          padding: 4,
+                          fontSize: 12,
+                        }}
+                      >
+                        {(influence > 0 || control > 0) ? (
+                          <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
+                            {control > 0 && <span>{control}</span>}
+                          </div>
+                        ) : null}
+                      </td>
+                    </>
+
+
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
