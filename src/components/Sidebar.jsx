@@ -1,5 +1,6 @@
 import React, { DragEvent } from 'react';
 import { useDnD } from './DnDContext';
+import DownloadButton from './DownloadButton';
 
 const DnDComponent = () => {
   const [_, setType] = useDnD();
@@ -20,6 +21,10 @@ const DnDComponent = () => {
         draggable
       >
         Add Node
+      </div>
+      <div>
+      <DownloadButton />
+
       </div>
 
    

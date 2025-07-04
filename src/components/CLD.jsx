@@ -17,6 +17,7 @@ import FloatingEdge from "../edges/FloatingEdge";
 import CustomConnectionLine from "../edges/CustomConnectionLine";
 import Sidebar from "./Sidebar";
 import { useDnD } from "./DnDContext";
+import DownloadButton from './DownloadButton';
 
 const initialEdges = [];
 
@@ -156,6 +157,7 @@ const CLD = () => {
     <div className="flex" style={{ height: "100%" }}>
       <div className="w-20 bg-gray-100 p-4">
         <Sidebar />
+
       </div>
       <ReactFlow
         nodes={nodes}
@@ -173,7 +175,9 @@ const CLD = () => {
         connectionLineStyle={connectionLineStyle}
       >
         <Background />
+
       </ReactFlow>
+   
     </div>
   );
 };

@@ -241,3 +241,6 @@
   margin-bottom: 3px;
   display: inline-block;
 }
+.react-flow__attribution {
+  display: none !important;
+}
