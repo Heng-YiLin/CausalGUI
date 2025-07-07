@@ -35,7 +35,7 @@ function DownloadButton() {
     // Take the PNG
     try {
       const dataUrl = await toPng(document.querySelector('.react-flow'), {
-        backgroundColor: '#1a365d',
+        backgroundColor: 'white',
         width: dynamicWidth,
         height: dynamicHeight,
         style: {

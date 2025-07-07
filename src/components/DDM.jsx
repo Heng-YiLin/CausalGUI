@@ -1,12 +1,10 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import "@xyflow/react/dist/style.css";
-import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
-
-// Register all Community features
+import { AllCommunityModule, ModuleRegistry } from "ag-grid-community";
 ModuleRegistry.registerModules([AllCommunityModule]);
+import { themeBalham } from 'ag-grid-community';
 import { AgGridReact } from "ag-grid-react";
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-alpine.css";
+
 
 export default function DDMGrid() {
   const [nodes, setNodes] = useState([]);
@@ -14,132 +12,137 @@ export default function DDMGrid() {
   const [rowData, setRowData] = useState([]);
   const [columnDefs, setColumnDefs] = useState([]);
 
+  // Initialize
   useEffect(() => {
-    const storedNodes = localStorage.getItem("savedNodes");
-    const storedEdges = localStorage.getItem("savedEdges");
+    const storedNodes = JSON.parse(localStorage.getItem("savedNodes") || "[]");
+    const storedEdges = JSON.parse(localStorage.getItem("savedEdges") || "[]");
 
-    let parsedNodes = [];
-    let parsedEdges = [];
+    setNodes(storedNodes);
+    setEdges(storedEdges);
 
-    if (storedNodes) {
-      try {
-        parsedNodes = JSON.parse(storedNodes);
-        setNodes(parsedNodes);
-      } catch (err) {
-        console.error("Failed to parse nodes:", err);
-      }
-    }
+    const columns = [
+      {
+        headerName: "",
+        field: "rowLabel",
+        pinned: "left",
+        editable: true, // allow editing to add new node
+      },
+      ...storedNodes.map((node) => ({
+        headerName: node.data?.label || node.id,
+        children: [
+          {
+            headerName: "I",
+            field: `${node.id}_I`,
+            editable: true,
+          },
+          {
+            headerName: "C",
+            field: `${node.id}_C`,
+            editable: true,
+          },
+        ],
+      })),
+    ];
 
-    if (storedEdges) {
-      try {
-        parsedEdges = JSON.parse(storedEdges);
-        setEdges(parsedEdges);
-      } catch (err) {
-        console.error("Failed to parse edges:", err);
-      }
-    }
+    setColumnDefs(columns);
 
-    if (parsedNodes.length) {
-      const cols = [
-        { headerName: "", field: "rowLabel", pinned: 'left', editable: false }
-      ];
-
-      parsedNodes.forEach((node) => {
-        cols.push(
-          { headerName: `${node.data?.label || node.id} I`, field: `${node.id}_I`, editable: true },
-          { headerName: `${node.data?.label || node.id} C`, field: `${node.id}_C`, editable: true }
+    const rows = storedNodes.map((rowNode) => {
+      const row = { rowLabel: rowNode.data?.label || rowNode.id };
+      storedNodes.forEach((colNode) => {
+        const edge = storedEdges.find(
+          (e) => e.source === rowNode.id && e.target === colNode.id
         );
+        row[`${colNode.id}_I`] = edge?.data?.influence ?? 0;
+        row[`${colNode.id}_C`] = edge?.data?.control ?? 0;
       });
+      return row;
+    });
 
-      setColumnDefs(cols);
-
-      const rows = parsedNodes.map((rowNode) => {
-        const row = { rowLabel: rowNode.data?.label || rowNode.id };
-
-        parsedNodes.forEach((colNode) => {
-          const edge = parsedEdges.find(e => e.source === rowNode.id && e.target === colNode.id);
-          row[`${colNode.id}_I`] = edge?.data?.influence ?? 0;
-          row[`${colNode.id}_C`] = edge?.data?.control ?? 0;
-        });
-
-        return row;
-      });
-
-      setRowData(rows);
-    }
+    rows.push({ rowLabel: "" }); // Blank row for adding new node
+    setRowData(rows);
   }, []);
+
   const handleCellChange = (params) => {
     const { data, colDef, newValue } = params;
     const [colNodeId, type] = colDef.field.split("_");
-    const rowNode = nodes.find(n => (n.data?.label || n.id) === data.rowLabel);
-    const rowNodeId = rowNode?.id;
+    const rowLabel = data.rowLabel?.trim();
 
-    if (!rowNodeId || !colNodeId || isNaN(newValue)) return;
+    //Add new node when label typed in empty row
+    if (!data._rowHandled && rowLabel && !nodes.some(n => n.data?.label === rowLabel)) {
+      const newId = `node_${Date.now()}`;
+      const newNode = { id: newId, type: "custom", position: { x: 0, y: 0 }, data: { label: rowLabel } };
 
-    const parsedValue = parseInt(newValue) || 0;
+      const newNodes = [...nodes, newNode];
+      localStorage.setItem("savedNodes", JSON.stringify(newNodes));
+      setNodes(newNodes);
 
-    const existingEdge = edges.find(
-      (e) => e.source === rowNodeId && e.target === colNodeId
-    );
+      // Reload to refresh headers and matrix
+      window.location.reload();
+      return;
+    }
 
+    // Don't continue if it's the header cell or invalid
+    if (!colNodeId || isNaN(newValue)) return;
+    const value = parseInt(newValue) || 0;
+
+    const sourceNode = nodes.find(n => (n.data?.label || n.id) === rowLabel);
+    if (!sourceNode) return;
+    const rowNodeId = sourceNode.id;
+
+    const existingEdge = edges.find(e => e.source === rowNodeId && e.target === colNodeId);
     let updatedEdges = [...edges];
 
-    if (!existingEdge && parsedValue > 0) {
+    if (!existingEdge && value > 0) {
       // Create new edge
       updatedEdges.push({
         id: `${rowNodeId}-${colNodeId}`,
         source: rowNodeId,
         target: colNodeId,
         data: {
-          influence: type === "I" ? parsedValue : 0,
-          control: type === "C" ? parsedValue : 0,
+          influence: type === "I" ? value : 0,
+          control: type === "C" ? value : 0,
         },
       });
     } else if (existingEdge) {
-      const newInfluence =
-        type === "I" ? parsedValue : existingEdge.data.influence ?? 0;
-      const newControl =
-        type === "C" ? parsedValue : existingEdge.data.control ?? 0;
+      const newInfluence = type === "I" ? value : existingEdge.data.influence ?? 0;
+      const newControl = type === "C" ? value : existingEdge.data.control ?? 0;
 
       if (newInfluence === 0 && newControl === 0) {
-        // Remove edge
         updatedEdges = updatedEdges.filter(
           (e) => !(e.source === rowNodeId && e.target === colNodeId)
         );
       } else {
-        // Update edge
         updatedEdges = updatedEdges.map((e) =>
           e.source === rowNodeId && e.target === colNodeId
             ? {
               ...e,
-              data: {
-                influence: newInfluence,
-                control: newControl,
-              },
+              data: { influence: newInfluence, control: newControl },
             }
             : e
         );
       }
     }
 
-    setEdges(updatedEdges);
     localStorage.setItem("savedEdges", JSON.stringify(updatedEdges));
+    setEdges(updatedEdges);
   };
 
   return (
     <div style={{ padding: 20 }}>
-      {nodes.length === 0 ? (
-        <p>No nodes found in localStorage.</p>
-      ) : (
-        <div className="ag-theme-alpine" style={{ height: 600, width: "100%" }}>
-          <AgGridReact
-            rowData={rowData}
-            columnDefs={columnDefs}
-            onCellValueChanged={handleCellChange}
-            stopEditingWhenCellsLoseFocus={true}
-          />
-        </div>
-      )}
+<div style={{ height: `calc(100vh - 150px)`, width: "100%" }}>
+
+  <AgGridReact
+  theme={themeBalham} 
+  rowData={rowData}              
+
+          columnDefs={columnDefs}
+          onCellValueChanged={handleCellChange}
+          stopEditingWhenCellsLoseFocus={true}
+          singleClickEdit={true}
+          defaultColDef={{ resizable: true, width: 80, editable: true }}
+        />
+
+      </div>
     </div>
   );
 }
