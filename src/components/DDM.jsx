@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState,useRef  } from "react";
 import "@xyflow/react/dist/style.css";
 import { AllCommunityModule, ModuleRegistry } from "ag-grid-community";
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -11,7 +11,7 @@ export default function DDMGrid() {
   const [edges, setEdges] = useState([]);
   const [rowData, setRowData] = useState([]);
   const [columnDefs, setColumnDefs] = useState([]);
-
+  const gridRef = useRef(null);
   // Initialize
   useEffect(() => {
     const storedNodes = JSON.parse(localStorage.getItem("savedNodes") || "[]");
@@ -126,7 +126,18 @@ export default function DDMGrid() {
     localStorage.setItem("savedEdges", JSON.stringify(updatedEdges));
     setEdges(updatedEdges);
   };
-
+  useEffect(() => {
+    const exportHandler = () => {
+      if (gridRef.current?.api) {
+        gridRef.current.api.exportDataAsCsv({
+          fileName: "DDM-edges.csv",
+        });
+      }
+    };
+  
+    window.addEventListener("ddm-export-csv", exportHandler);
+    return () => window.removeEventListener("ddm-export-csv", exportHandler);
+  }, []);
   return (
     <div style={{ padding: 20 }}>
 <div style={{ height: `calc(100vh - 150px)`, width: "100%" }}>
@@ -134,7 +145,7 @@ export default function DDMGrid() {
   <AgGridReact
   theme={themeBalham} 
   rowData={rowData}              
-
+  ref={gridRef} 
           columnDefs={columnDefs}
           onCellValueChanged={handleCellChange}
           stopEditingWhenCellsLoseFocus={true}

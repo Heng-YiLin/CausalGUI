@@ -2,21 +2,9 @@ import React from "react";
 import Logo from "../assets/logo.png";
 import { Link } from "react-router-dom";
 
-const downloadNodesAsJSON = () => {
-  // Read latest data at time of click
-  const nodes = JSON.parse(localStorage.getItem("savedNodes") || "[]");
-  const dataStr = JSON.stringify(nodes, null, 2);
-  const blob = new Blob([dataStr], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "nodes.json";
-  a.click();
-
-  URL.revokeObjectURL(url);
+const downloadCsv = () => {
+  window.dispatchEvent(new Event("ddm-export-csv"));
 };
-
 const Header = () => {
   return (
     <nav className="sticky top-0 z-30 w-full shadow-md">
@@ -31,7 +19,7 @@ const Header = () => {
             <Link to="/DDM">Direct Dependency Matrix</Link>
             <Link to="/FactorClassGraph">Factor Class Graph</Link>
             <button
-              onClick={downloadNodesAsJSON}
+              onClick={downloadCsv}
               className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded"
             >
               Download
