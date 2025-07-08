@@ -60,8 +60,8 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
     }
   }, [edgePath]);
 
-  const influence = data?.influence ?? "";
-  const control = data?.control ?? "";
+  const influence = data?.influence ?? 0;
+  const control = data?.control ?? 0;
 
   const updateEdgeData = (field, value) => {
     setEdges((edges) =>
