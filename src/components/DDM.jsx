@@ -4,6 +4,7 @@ import { AllCommunityModule, ModuleRegistry } from "ag-grid-community";
 ModuleRegistry.registerModules([AllCommunityModule]);
 import { themeBalham } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
+import {parseExcelFile} from "./excelImporter"
 
 export default function DDMGrid() {
   const [nodes, setNodes] = useState([]);
@@ -11,6 +12,15 @@ export default function DDMGrid() {
   const [rowData, setRowData] = useState([]);
   const [columnDefs, setColumnDefs] = useState([]);
   const gridRef = useRef(null);
+
+
+  const handleExcelUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      parseExcelFile(file, setColumnDefs, setRowData, setNodes, setEdges);
+    }
+  };
+
   // Initialize
   useEffect(() => {
     const storedNodes = JSON.parse(localStorage.getItem("savedNodes") || "[]");
@@ -160,6 +170,9 @@ export default function DDMGrid() {
   }, []);
   return (
     <div style={{ padding: 20 }}>
+      <div style={{ marginBottom: 10 }}>
+  <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} />
+</div>
       <div style={{ height: `calc(100vh - 150px)`, width: "100%" }}>
         <AgGridReact
           theme={themeBalham}

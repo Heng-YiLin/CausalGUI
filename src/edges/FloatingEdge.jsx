@@ -32,6 +32,15 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   if (!sourceNode || !targetNode) return null;
 
   const { sx, sy, tx, ty } = getEdgeParams(sourceNode, targetNode);
+  if (
+    [sx, sy, tx, ty].some((v) => typeof v !== "number" || isNaN(v)) ||
+    !sourceNode.position ||
+    !targetNode.position
+  ) {
+    console.warn("Skipping edge due to invalid positions:", { id, sx, sy, tx, ty, sourceNode, targetNode });
+    return null;
+  }
+  
 
   // Fallback midpoint perpendicular offset control
   const t = 0.5;
