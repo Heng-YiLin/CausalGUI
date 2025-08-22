@@ -9,6 +9,7 @@ import {
   MarkerType,
   useReactFlow,
 } from "@xyflow/react";
+import { applyNodeChanges, applyEdgeChanges } from "@xyflow/react";
 
 import "@xyflow/react/dist/style.css";
 
@@ -17,9 +18,6 @@ import FloatingEdge from "../edges/FloatingEdge";
 import CustomConnectionLine from "../edges/CustomConnectionLine";
 import Sidebar from "./Sidebar";
 import { useDnD } from "./DnDContext";
-import DownloadButton from "./DownloadButton";
-
-const initialEdges = [];
 
 const connectionLineStyle = {
   stroke: "#b1b1b7",
@@ -41,13 +39,20 @@ const defaultEdgeOptions = {
   },
 };
 
-const CLD = () => {
-  const savedNodes = localStorage.getItem("savedNodes");
-  const savedEdges = localStorage.getItem("savedEdges");
-
+const CLD = ({ nodes, setNodes, edges, setEdges }) => {
   const wrapperRef = useRef(null);
   const { screenToFlowPosition } = useReactFlow();
   const [type] = useDnD();
+
+  const onNodesChange = useCallback(
+    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    [setNodes]
+  );
+
+  const onEdgesChange = useCallback(
+    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    [setEdges]
+  );
 
   const handleNodeLabelChange = useCallback((id, value) => {
     setNodes((nodes) =>
@@ -65,26 +70,6 @@ const CLD = () => {
       )
     );
   }, []);
-  const initialNodes = savedNodes ? JSON.parse(savedNodes) : [];
-
-  const injectOnChange = useCallback(
-    (nodes, handler) =>
-      nodes.map((node) => ({
-        ...node,
-        data: {
-          ...node.data,
-          onChange: handler,
-        },
-      })),
-    []
-  );
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(
-    injectOnChange(initialNodes, handleNodeLabelChange)
-  );
-  const [edges, setEdges, onEdgesChange] = useEdgesState(
-    savedEdges ? JSON.parse(savedEdges) : initialEdges
-  );
 
   const getId = () => {
     const numericIds = nodes
@@ -135,15 +120,9 @@ const CLD = () => {
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [screenToFlowPosition, type, setNodes]
+    [screenToFlowPosition, type, setNodes, handleNodeLabelChange]
   );
 
-  useEffect(() => {
-    localStorage.setItem("savedNodes", JSON.stringify(nodes));
-  }, [nodes]);
-  useEffect(() => {
-    localStorage.setItem("savedEdges", JSON.stringify(edges));
-  }, [edges]);
   return (
     <div className="flex" style={{ height: "100%" }}>
       <div className="w-20 bg-gray-100 p-4">
