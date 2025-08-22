@@ -17,7 +17,7 @@ import FloatingEdge from "../edges/FloatingEdge";
 import CustomConnectionLine from "../edges/CustomConnectionLine";
 import Sidebar from "./Sidebar";
 import { useDnD } from "./DnDContext";
-import DownloadButton from './DownloadButton';
+import DownloadButton from "./DownloadButton";
 
 const initialEdges = [];
 
@@ -68,22 +68,8 @@ const CLD = () => {
       )
     );
   }, []);
-  const initialNodes = savedNodes
-    ? JSON.parse(savedNodes)
-    : [
-        {
-          id: "1",
-          type: "custom",
-          data: { label: "Node 1" },
-          position: { x: 0, y: 0 },
-        },
-        {
-          id: "2",
-          type: "custom",
-          data: { label: "Node 2" },
-          position: { x: 250, y: 320 },
-        },
-      ];
+  const initialNodes = savedNodes ? JSON.parse(savedNodes) : [];
+
   const injectOnChange = useCallback(
     (nodes, handler) =>
       nodes.map((node) => ({
@@ -157,7 +143,6 @@ const CLD = () => {
     <div className="flex" style={{ height: "100%" }}>
       <div className="w-20 bg-gray-100 p-4">
         <Sidebar />
-
       </div>
       <ReactFlow
         nodes={nodes}
@@ -175,9 +160,7 @@ const CLD = () => {
         connectionLineStyle={connectionLineStyle}
       >
         <Background />
-
       </ReactFlow>
-   
     </div>
   );
 };

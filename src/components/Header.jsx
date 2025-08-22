@@ -5,13 +5,36 @@ const downloadCsv = () => {
   window.dispatchEvent(new Event("ddm-export-csv"));
 };
 const downloadNodesAndEdgesJson = () => {
-  const nodes = JSON.parse(localStorage.getItem("savedNodes") || "[]");
-  const edges = JSON.parse(localStorage.getItem("savedEdges") || "[]");
+  const rawNodes = JSON.parse(localStorage.getItem("savedNodes") || "[]");
+  const rawEdges = JSON.parse(localStorage.getItem("savedEdges") || "[]");
 
-  const data = {
-    nodes,
-    edges,
-  };
+  // Ensure all nodes have the right structure
+  const nodes = rawNodes.map((n) => ({
+    id: n.id,
+    type: n.type ?? "custom",
+    position: n.position ?? { x: 0, y: 0 },
+    data: {
+      label: n.data?.label ?? `Node ${n.id}`,
+    },
+    measured: n.measured ?? { width: 80, height: 40 },
+    selected: n.selected ?? false,
+    dragging: n.dragging ?? false,
+  }));
+
+  const edges = rawEdges.map((e) => ({
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    type: e.type ?? "floating",
+    data: {
+      influence: e.data?.influence ?? 0,
+      control: e.data?.control ?? 0,
+      offset: e.data?.offset ?? 0,
+    },
+    selected: e.selected ?? false,
+  }));
+
+  const data = { nodes, edges };
 
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json",
@@ -24,6 +47,7 @@ const downloadNodesAndEdgesJson = () => {
   a.click();
   URL.revokeObjectURL(url);
 };
+
 
 const Header = ({ onImportJson }) => {
   return (

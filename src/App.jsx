@@ -32,6 +32,7 @@ export default function App() {
         // Update state
         setNodes(importedNodes);
         setEdges(importedEdges);
+        
       } catch (error) {
         console.error("Invalid JSON file:", error);
         alert("Failed to import JSON: Invalid format.");
@@ -41,6 +42,7 @@ export default function App() {
     reader.readAsText(file);
   };
 
+  
   return (
     <Router>
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -49,7 +51,17 @@ export default function App() {
         <div style={{ flex: 1, minHeight: 0 }}>
           <Routes>
             <Route path="/" element={<CLD nodes={nodes} edges={edges} />} />
-            <Route path="/DDM" element={<About nodes={nodes} edges={edges} setNodes={setNodes} setEdges={setEdges} />} />
+            <Route
+              path="/DDM"
+              element={
+                <About
+                  nodes={nodes}
+                  edges={edges}
+                  setNodes={setNodes}
+                  setEdges={setEdges}
+                />
+              }
+            />
             <Route path="/FactorClassGraph" element={<Contact />} />
           </Routes>
         </div>
