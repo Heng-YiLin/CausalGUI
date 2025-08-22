@@ -41,9 +41,6 @@ const defaultEdgeOptions = {
   },
 };
 
-let id = 5;
-const getId = () => `node_${id++}`;
-
 const CLD = () => {
   const savedNodes = localStorage.getItem("savedNodes");
   const savedEdges = localStorage.getItem("savedEdges");
@@ -88,6 +85,14 @@ const CLD = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState(
     savedEdges ? JSON.parse(savedEdges) : initialEdges
   );
+
+  const getId = () => {
+    const numericIds = nodes
+      .map((n) => parseInt(n.id, 10))
+      .filter((n) => !isNaN(n));
+    const maxId = numericIds.length ? Math.max(...numericIds) : 0;
+    return String(maxId + 1);
+  };
 
   const onConnect = useCallback(
     (params) =>
