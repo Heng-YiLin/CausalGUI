@@ -6,12 +6,42 @@ import About from "./components/DDM";
 import Contact from "./components/FactorClassGraph";
 
 export default function App() {
+  const sanitizeNodes = (nodes) =>
+    (nodes || []).map((node) => ({
+      id: node.id ?? crypto.randomUUID(),
+      type: node.type ?? "custom",
+      position: node.position ?? { x: 0, y: 0 },
+      data: {
+        label: node.data?.label ?? "Unnamed",
+        ...node.data,
+      },
+      ...node,
+    }));
+  const sanitizeEdges = (edges) =>
+    (edges || []).map((edge) => ({
+      id: edge.id ?? `${edge.source}-${edge.target}`,
+      source: edge.source,
+      target: edge.target,
+      type: edge.type ?? "floating",
+      data: {
+        ...edge.data,
+        label: typeof edge.data?.label === "string" ? edge.data.label : "",
+        influence:
+          typeof edge.data?.influence === "number" ? edge.data.influence : 0,
+        control: typeof edge.data?.control === "number" ? edge.data.control : 0,
+        offset: typeof edge.data?.offset === "number" ? edge.data.offset : 0,
+      },
+      ...edge,
+    }));
+
   const [nodes, setNodes] = useState(() => {
-    return JSON.parse(localStorage.getItem("savedNodes") || "[]");
+    const raw = JSON.parse(localStorage.getItem("savedNodes") || "[]");
+    return sanitizeNodes(raw);
   });
 
   const [edges, setEdges] = useState(() => {
-    return JSON.parse(localStorage.getItem("savedEdges") || "[]");
+    const raw = JSON.parse(localStorage.getItem("savedEdges") || "[]");
+    return sanitizeEdges(raw);
   });
 
   useEffect(() => {
@@ -22,6 +52,19 @@ export default function App() {
     localStorage.setItem("savedEdges", JSON.stringify(edges));
   }, [edges]);
 
+  useEffect(() => {
+    for (const n of nodes) {
+      if (!n?.data || typeof n.data.label !== "string") {
+        console.warn("⚠️ Invalid node label", n);
+      }
+    }
+
+    for (const e of edges) {
+      if (!e?.data || typeof e.data.label !== "string") {
+        console.warn("⚠️ Invalid edge label", e);
+      }
+    }
+  }, [nodes, edges]);
   const handleJsonImport = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -30,8 +73,8 @@ export default function App() {
     reader.onload = (e) => {
       try {
         const parsed = JSON.parse(e.target.result);
-        const importedNodes = parsed.nodes || [];
-        const importedEdges = parsed.edges || [];
+        const importedNodes = sanitizeNodes(parsed.nodes || []);
+        const importedEdges = sanitizeEdges(parsed.edges || []);
 
         // Save to localStorage
         localStorage.setItem("savedNodes", JSON.stringify(importedNodes));

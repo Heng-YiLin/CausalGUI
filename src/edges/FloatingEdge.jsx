@@ -29,7 +29,15 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   const [labelPos, setLabelPos] = useState({ x: 0, y: 0 });
   const [editing, setEditing] = useState(false);
 
-  if (!sourceNode || !targetNode) return null;
+  if (!sourceNode || !targetNode || !data || typeof data !== "object") {
+    console.warn("Skipping edge due to missing source/target/data", {
+      id,
+      sourceNode,
+      targetNode,
+      data,
+    });
+    return null;
+  }
 
   const { sx, sy, tx, ty } = getEdgeParams(sourceNode, targetNode);
   if (
@@ -37,10 +45,17 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
     !sourceNode.position ||
     !targetNode.position
   ) {
-    console.warn("Skipping edge due to invalid positions:", { id, sx, sy, tx, ty, sourceNode, targetNode });
+    console.warn("Skipping edge due to invalid positions:", {
+      id,
+      sx,
+      sy,
+      tx,
+      ty,
+      sourceNode,
+      targetNode,
+    });
     return null;
   }
-  
 
   // Fallback midpoint perpendicular offset control
   const t = 0.5;
@@ -77,12 +92,12 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
       edges.map((edge) =>
         edge.id === id
           ? {
-            ...edge,
-            data: {
-              ...edge.data,
-              [field]: value,
-            },
-          }
+              ...edge,
+              data: {
+                ...edge.data,
+                [field]: value,
+              },
+            }
           : edge
       )
     );
@@ -92,7 +107,12 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   const handleBlur = () => setEditing(false);
 
   // Compute handle position and normal
-  const { x: hx, y: hy, nx, ny } = getQuadraticPointAndNormal(sx, sy, cx, cy, tx, ty, t);
+  const {
+    x: hx,
+    y: hy,
+    nx,
+    ny,
+  } = getQuadraticPointAndNormal(sx, sy, cx, cy, tx, ty, t);
 
   return (
     <>
@@ -216,8 +236,8 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
       )}
       {editing && (
         <circle
-          cx={labelPos.x - 60}  // 10px left of the label box (label width is ~100)
-          cy={labelPos.y - 5}       // same vertical center
+          cx={labelPos.x - 60} // 10px left of the label box (label width is ~100)
+          cy={labelPos.y - 5} // same vertical center
           r={7}
           fill="#fff"
           stroke="#333"
@@ -247,12 +267,6 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
           }}
         />
       )}
-
-
-
-
-
-
     </>
   );
 }
