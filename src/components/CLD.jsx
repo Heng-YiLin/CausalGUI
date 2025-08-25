@@ -44,6 +44,11 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
   const { screenToFlowPosition } = useReactFlow();
   const [type] = useDnD();
 
+  const nodesRef = useRef(nodes);
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+
   const onNodesChange = useCallback(
     (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
     [setNodes]
@@ -72,7 +77,7 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
   }, []);
 
   const getId = () => {
-    const numericIds = nodes
+  const numericIds = nodesRef.current
       .map((n) => parseInt(n.id, 10))
       .filter((n) => !isNaN(n));
     const maxId = numericIds.length ? Math.max(...numericIds) : 0;
