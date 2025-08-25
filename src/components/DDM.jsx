@@ -19,6 +19,24 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
     }
   };
 
+  // Reuse these in both "I" and "C" columns
+  const numericValueSetter = (p) => {
+    const raw = (p.newValue ?? "").toString().trim();
+    if (raw === "") {
+      p.data[p.colDef.field] = null; // <-- store null when cleared
+      return true;
+    }
+    const n = Number(raw);
+    if (Number.isFinite(n)) {
+      p.data[p.colDef.field] = n; // keep numbers as numbers (0 allowed)
+      return true;
+    }
+    return false; // reject non-numeric
+  };
+
+  const blankNullFormatter = (p) =>
+    p.value === null || p.value === undefined ? "" : p.value;
+
   const rebuildMatrix = (nodeList, edgeList) => {
     const columns = [
       {
@@ -34,45 +52,15 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
             headerName: "I",
             field: `${node.id}_I`,
             editable: true,
-            valueSetter: (params) => {
-              const val = params.newValue;
-              if (val === "") {
-                params.data[params.colDef.field] = "";
-                return true;
-              }
-              const parsed = parseInt(val, 10);
-              if (!isNaN(parsed)) {
-                params.data[params.colDef.field] = parsed;
-                return true;
-              }
-              return false;
-            },
-            valueFormatter: (params) =>
-              params.value === "" || params.value === null || isNaN(params.value)
-                ? ""
-                : params.value,
+            valueSetter: numericValueSetter,
+            valueFormatter: blankNullFormatter,
           },
           {
             headerName: "C",
             field: `${node.id}_C`,
             editable: true,
-            valueSetter: (params) => {
-              const val = params.newValue;
-              if (val === "") {
-                params.data[params.colDef.field] = "";
-                return true;
-              }
-              const parsed = parseInt(val, 10);
-              if (!isNaN(parsed)) {
-                params.data[params.colDef.field] = parsed;
-                return true;
-              }
-              return false;
-            },
-            valueFormatter: (params) =>
-              params.value === "" || params.value === null || isNaN(params.value)
-                ? ""
-                : params.value,
+            valueSetter: numericValueSetter,
+            valueFormatter: blankNullFormatter,
           },
         ],
       })),
@@ -113,69 +101,51 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
   // === Handle editing cells ===
   const handleCellChange = (params) => {
     const { data, colDef } = params;
-    const [colNodeId, type] = colDef.field.split("_");
-    const rowLabel = data.rowLabel?.trim();
-  
+    const [colNodeId] = colDef.field.split("_");
+    const rowLabel = (data.rowLabel || "").trim();
+
     const sourceNode = nodes.find((n) => (n.data?.label || n.id) === rowLabel);
     if (!sourceNode || !colNodeId) return;
-  
-    const rowNodeId = sourceNode.id;
-    const existingEdge = edges.find(
-      (e) => e.source === rowNodeId && e.target === colNodeId
-    );
-  
-    // Get current values as stored in the row
-    const row = rowData.find((r) => r.rowLabel?.trim() === rowLabel);
-    if (!row) return;
-    
-    const rawI = type === "I" ? newValue : row[`${colNodeId}_I`];
-    const rawC = type === "C" ? newValue : row[`${colNodeId}_C`];
-    
-  
-    const isEmptyI = rawI === "" || rawI === null || rawI === undefined;
-    const isEmptyC = rawC === "" || rawC === null || rawC === undefined;
-  
-    // 🧠 Edge should only be deleted if BOTH are empty
-    let updatedEdges = [...edges];
-  
-    if (isEmptyI && isEmptyC) {
-      updatedEdges = updatedEdges.filter(
-        (e) => !(e.source === rowNodeId && e.target === colNodeId)
+
+    // Pull BOTH values from the already-updated row
+    const rawI = data[`${colNodeId}_I`];
+    const rawC = data[`${colNodeId}_C`];
+
+    const influence = rawI === null || rawI === "" ? null : Number(rawI);
+    const control = rawC === null || rawC === "" ? null : Number(rawC);
+
+    setEdges((prev) => {
+      const next = [...prev];
+      const rowNodeId = sourceNode.id;
+      const idx = next.findIndex(
+        (e) => e.source === rowNodeId && e.target === colNodeId
       );
-    } else {
-      const influence = isEmptyI ? 0 : parseInt(rawI, 10);
-      const control = isEmptyC ? 0 : parseInt(rawC, 10);
-  
-      if (existingEdge) {
-        updatedEdges = updatedEdges.map((e) =>
-          e.source === rowNodeId && e.target === colNodeId
-            ? {
-                ...e,
-                data: {
-                  influence,
-                  control,
-                },
-              }
-            : e
-        );
+
+      const bothEmpty = influence === null && control === null;
+
+      if (bothEmpty) {
+        if (idx !== -1) next.splice(idx, 1); // delete edge
+      } else if (idx !== -1) {
+        next[idx] = {
+          ...next[idx],
+          data: { ...next[idx].data, influence, control },
+        };
       } else {
-        updatedEdges.push({
+        next.push({
           id: `${rowNodeId}-${colNodeId}`,
           source: rowNodeId,
           target: colNodeId,
-          data: {
-            influence,
-            control,
-          },
+          data: { influence, control },
         });
       }
-    }
-  
-    setEdges(updatedEdges);
-    localStorage.setItem("savedEdges", JSON.stringify(updatedEdges));
-    window.dispatchEvent(new Event("storage-update"));
+
+      // persist
+      localStorage.setItem("savedEdges", JSON.stringify(next));
+      window.dispatchEvent(new Event("storage-update"));
+      return next;
+    });
   };
-  
+
   // === CSV Export Trigger ===
   useEffect(() => {
     const exportHandler = () => {
