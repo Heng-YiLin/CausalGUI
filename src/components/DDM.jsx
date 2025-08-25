@@ -34,11 +34,45 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
             headerName: "I",
             field: `${node.id}_I`,
             editable: true,
+            valueSetter: (params) => {
+              const val = params.newValue;
+              if (val === "") {
+                params.data[params.colDef.field] = "";
+                return true;
+              }
+              const parsed = parseInt(val, 10);
+              if (!isNaN(parsed)) {
+                params.data[params.colDef.field] = parsed;
+                return true;
+              }
+              return false;
+            },
+            valueFormatter: (params) =>
+              params.value === "" || params.value === null || isNaN(params.value)
+                ? ""
+                : params.value,
           },
           {
             headerName: "C",
             field: `${node.id}_C`,
             editable: true,
+            valueSetter: (params) => {
+              const val = params.newValue;
+              if (val === "") {
+                params.data[params.colDef.field] = "";
+                return true;
+              }
+              const parsed = parseInt(val, 10);
+              if (!isNaN(parsed)) {
+                params.data[params.colDef.field] = parsed;
+                return true;
+              }
+              return false;
+            },
+            valueFormatter: (params) =>
+              params.value === "" || params.value === null || isNaN(params.value)
+                ? ""
+                : params.value,
           },
         ],
       })),
@@ -63,9 +97,6 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
   };
   // === Initialize matrix from props ===
   useEffect(() => {
-    console.log("Imported nodes", nodes);
-    console.log("Imported edges", edges);
-
     if (!Array.isArray(nodes) || !nodes.length) return;
     rebuildMatrix(nodes, edges || []);
   }, [nodes, edges]);
@@ -81,68 +112,70 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
 
   // === Handle editing cells ===
   const handleCellChange = (params) => {
-    const { data, colDef, newValue } = params;
+    const { data, colDef } = params;
     const [colNodeId, type] = colDef.field.split("_");
     const rowLabel = data.rowLabel?.trim();
-
+  
     const sourceNode = nodes.find((n) => (n.data?.label || n.id) === rowLabel);
     if (!sourceNode || !colNodeId) return;
-
+  
     const rowNodeId = sourceNode.id;
     const existingEdge = edges.find(
       (e) => e.source === rowNodeId && e.target === colNodeId
     );
-
-    // Get both I and C from the row data
-    const influenceRaw = type === "I" ? newValue : data[`${colNodeId}_I`];
-    const controlRaw = type === "C" ? newValue : data[`${colNodeId}_C`];
-
-    const influence = influenceRaw === "" ? "" : parseInt(influenceRaw, 10);
-    const control = controlRaw === "" ? "" : parseInt(controlRaw, 10);
-
+  
+    // Get current values as stored in the row
+    const row = rowData.find((r) => r.rowLabel?.trim() === rowLabel);
+    if (!row) return;
+    
+    const rawI = type === "I" ? newValue : row[`${colNodeId}_I`];
+    const rawC = type === "C" ? newValue : row[`${colNodeId}_C`];
+    
+  
+    const isEmptyI = rawI === "" || rawI === null || rawI === undefined;
+    const isEmptyC = rawC === "" || rawC === null || rawC === undefined;
+  
+    // 🧠 Edge should only be deleted if BOTH are empty
     let updatedEdges = [...edges];
-
-    // CASE 1: DELETE if both are empty or 0
-    if ((!influence && !control) || (influence === 0 && control === 0)) {
+  
+    if (isEmptyI && isEmptyC) {
       updatedEdges = updatedEdges.filter(
         (e) => !(e.source === rowNodeId && e.target === colNodeId)
       );
+    } else {
+      const influence = isEmptyI ? 0 : parseInt(rawI, 10);
+      const control = isEmptyC ? 0 : parseInt(rawC, 10);
+  
+      if (existingEdge) {
+        updatedEdges = updatedEdges.map((e) =>
+          e.source === rowNodeId && e.target === colNodeId
+            ? {
+                ...e,
+                data: {
+                  influence,
+                  control,
+                },
+              }
+            : e
+        );
+      } else {
+        updatedEdges.push({
+          id: `${rowNodeId}-${colNodeId}`,
+          source: rowNodeId,
+          target: colNodeId,
+          data: {
+            influence,
+            control,
+          },
+        });
+      }
     }
-
-    // CASE 2: UPDATE if edge exists and at least one value is non-zero
-    else if (existingEdge) {
-      updatedEdges = updatedEdges.map((e) =>
-        e.source === rowNodeId && e.target === colNodeId
-          ? {
-              ...e,
-              data: {
-                influence: influence || 0,
-                control: control || 0,
-              },
-            }
-          : e
-      );
-    }
-
-    // CASE 3: CREATE if new and valid
-    else if (!existingEdge && (influence || control)) {
-      updatedEdges.push({
-        id: `${rowNodeId}-${colNodeId}`,
-        source: rowNodeId,
-        target: colNodeId,
-        data: {
-          influence: influence || 0,
-          control: control || 0,
-        },
-      });
-    }
-
-    // Save + dispatch
+  
     setEdges(updatedEdges);
     localStorage.setItem("savedEdges", JSON.stringify(updatedEdges));
     window.dispatchEvent(new Event("storage-update"));
   };
-
+  
   // === CSV Export Trigger ===
   useEffect(() => {
     const exportHandler = () => {
