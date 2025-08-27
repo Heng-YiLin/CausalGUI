@@ -4,8 +4,7 @@ import {
   Background,
   ReactFlow,
   addEdge,
-  useNodesState,
-  useEdgesState,
+
   MarkerType,
   useReactFlow,
 } from "@xyflow/react";
@@ -77,7 +76,7 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
   }, []);
 
   const getId = () => {
-  const numericIds = nodesRef.current
+    const numericIds = nodesRef.current
       .map((n) => parseInt(n.id, 10))
       .filter((n) => !isNaN(n));
     const maxId = numericIds.length ? Math.max(...numericIds) : 0;
@@ -91,7 +90,11 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
           {
             ...params,
             type: "floating", // Ensure floating edge is used
-            data: { label: "" }, // Default label (can be '-', '' etc.)
+            data: {
+              label: "",
+              impact: 0, 
+              control: 0, 
+            },
           },
           eds
         )

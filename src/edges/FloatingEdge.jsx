@@ -84,7 +84,7 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
     }
   }, [edgePath]);
 
-  const influence = data?.influence ?? 0;
+  const impact = data?.impact ?? 0;
   const control = data?.control ?? 0;
 
   const updateEdgeData = (field, value) => {
@@ -130,7 +130,7 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
         onClick={handleEdgeClick}
       />
 
-      {(editing || influence || control) && (
+      {(editing || impact || control) && (
         <foreignObject
           width={100}
           height={40}
@@ -187,10 +187,10 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
                 <label>
                   I:
                   <input
-                    value={influence}
+                    value={impact}
                     onChange={(e) => {
                       if (/^-?\d*\.?\d*$/.test(e.target.value)) {
-                        updateEdgeData("influence", e.target.value);
+                        updateEdgeData("impact", e.target.value);
                       }
                     }}
                     onBlur={handleBlur}
@@ -227,7 +227,7 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
               </>
             ) : (
               <div style={{ display: "flex", gap: 4 }}>
-                <div>I: {influence}</div>
+                <div>I: {impact}</div>
                 <div>C: {control}</div>
               </div>
             )}

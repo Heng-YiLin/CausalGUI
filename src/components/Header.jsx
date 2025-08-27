@@ -27,7 +27,7 @@ const downloadNodesAndEdgesJson = () => {
     target: e.target,
     type: e.type ?? "floating",
     data: {
-      influence: e.data?.influence ?? 0,
+      impact: e.data?.impact ?? 0,
       control: e.data?.control ?? 0,
       offset: e.data?.offset ?? 0,
     },

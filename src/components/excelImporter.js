@@ -93,15 +93,15 @@ export function parseExcelFile(file, setColumnDefs, setRowData, setNodes, setEdg
         const targetId = labelToIdMap.get(targetLabel);
         if (!targetId || !validNodeIds.has(targetId)) return;
 
-        const influence = parseInt(row[`${targetLabel}_I`]) || 0;
+        const impact = parseInt(row[`${targetLabel}_I`]) || 0;
         const control = parseInt(row[`${targetLabel}_C`]) || 0;
 
-        if ((influence || control) && sourceId !== targetId) {
+        if ((impact || control) && sourceId !== targetId) {
           newEdges.push({
             id: `${sourceId}-${targetId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             source: sourceId,
             target: targetId,
-            data: { influence, control, offset: 40 }, // Default offset
+            data: { impact, control, offset: 40 }, // Default offset
           });
         }
       });

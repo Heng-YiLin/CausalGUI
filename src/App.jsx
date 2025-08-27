@@ -26,8 +26,8 @@ export default function App() {
       data: {
         ...edge.data,
         label: typeof edge.data?.label === "string" ? edge.data.label : "",
-        influence:
-          typeof edge.data?.influence === "number" ? edge.data.influence : 0,
+        impact:
+          typeof edge.data?.impact === "number" ? edge.data.impact : 0,
         control: typeof edge.data?.control === "number" ? edge.data.control : 0,
         offset: typeof edge.data?.offset === "number" ? edge.data.offset : 0,
       },

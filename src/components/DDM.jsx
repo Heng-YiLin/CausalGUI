@@ -72,7 +72,7 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
         const edge = edgeList.find(
           (e) => e.source === rowNode.id && e.target === colNode.id
         );
-        row[`${colNode.id}_I`] = edge?.data?.influence ?? null;
+        row[`${colNode.id}_I`] = edge?.data?.impact ?? null;
         row[`${colNode.id}_C`] = edge?.data?.control ?? null;
       });
       return row;
@@ -111,7 +111,7 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
     const rawI = data[`${colNodeId}_I`];
     const rawC = data[`${colNodeId}_C`];
 
-    const influence = rawI === null || rawI === "" ? null : Number(rawI);
+    const impact = rawI === null || rawI === "" ? null : Number(rawI);
     const control = rawC === null || rawC === "" ? null : Number(rawC);
 
     setEdges((prev) => {
@@ -121,21 +121,21 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
         (e) => e.source === rowNodeId && e.target === colNodeId
       );
 
-      const bothEmpty = influence === null && control === null;
+      const bothEmpty = impact === null && control === null;
 
       if (bothEmpty) {
         if (idx !== -1) next.splice(idx, 1); // delete edge
       } else if (idx !== -1) {
         next[idx] = {
           ...next[idx],
-          data: { ...next[idx].data, influence, control },
+          data: { ...next[idx].data, impact, control },
         };
       } else {
         next.push({
           id: `${rowNodeId}-${colNodeId}`,
           source: rowNodeId,
           target: colNodeId,
-          data: { influence, control },
+          data: { impact, control },
         });
       }
 
