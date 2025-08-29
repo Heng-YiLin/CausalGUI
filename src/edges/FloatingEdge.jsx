@@ -14,7 +14,8 @@ function getQuadraticPointAndNormal(sx, sy, cx, cy, tx, ty, t) {
   const dx = 2 * (1 - t) * (cx - sx) + 2 * t * (tx - cx);
   const dy = 2 * (1 - t) * (cy - sy) + 2 * t * (ty - cy);
 
-  const len = Math.sqrt(dx * dx + dy * dy);
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+
   const nx = -dy / len;
   const ny = dx / len;
 
@@ -28,6 +29,13 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   const pathRef = useRef(null);
   const [labelPos, setLabelPos] = useState({ x: 0, y: 0 });
   const [editing, setEditing] = useState(false);
+  const sign = data?.sign ?? null;
+  const strokeColor =
+    sign === "+"
+      ? "#16a34a" // green
+      : sign === "-"
+      ? "#dc2626" // red
+      : "#b1b1b7"; // neutral
 
   if (!sourceNode || !targetNode || !data || typeof data !== "object") {
     return null;
@@ -51,7 +59,7 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   const my = (sy + ty) / 2;
   const dx = tx - sx;
   const dy = ty - sy;
-  const len = Math.sqrt(dx * dx + dy * dy);
+  const len = Math.sqrt(dx * dx + dy * dy) || 1; // fallback to 1
   const perpX = -dy / len;
   const perpY = dx / len;
 
@@ -76,18 +84,17 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
     setEdges((edges) =>
       edges.map((edge) =>
         edge.id === id
-          ? {
-              ...edge,
-              data: {
-                ...edge.data,
-                [field]: value,
-              },
-            }
+          ? { ...edge, data: { ...edge.data, [field]: value } }
           : edge
       )
     );
   };
 
+  const cycleSign = () => {
+    const next =
+      sign === null ? "+" : sign === "+" ? "-" : /* sign === '-' */ null;
+    updateEdgeData("sign", next);
+  };
   const handleEdgeClick = () => setEditing(true);
   const handleBlur = () => setEditing(false);
 
@@ -109,13 +116,13 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
         markerEnd={markerEnd}
         style={style}
         strokeWidth={2}
-        stroke="#b1b1b7"
+        stroke={strokeColor} // <— here
         fill="none"
         cursor="pointer"
         onClick={handleEdgeClick}
       />
 
-      {(editing || impact || control) && (
+      {(editing || sign || impact || control) && (
         <foreignObject
           width={100}
           height={40}
@@ -209,11 +216,75 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
                     }}
                   />
                 </label>
+                <button
+                  className="nodrag"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    cycleSign();
+                  }}
+                  style={{
+                    fontSize: 10,
+                    padding: "1px 6px",
+                    borderRadius: 999,
+                    border: "1px solid #aaa",
+                    background:
+                      sign === null
+                        ? "#fff"
+                        : sign === "+"
+                        ? "#e8f5e9"
+                        : "#fdeaea",
+                    lineHeight: 1.2,
+                  }}
+                  title="Cycle sign: null → + → −"
+                >
+                  {sign === null ? "∅" : sign}
+                </button>
               </>
+            ) : 
+            sign ? (
+              // Show ONLY the sign chip when sign is "+" or "-"
+              <button
+                className="nodrag"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  cycleSign(); // + → − → null
+                }}
+                style={{
+                  fontSize: 10,
+                  padding: "1px 6px",
+                  borderRadius: 999,
+                  border: "1px solid #aaa",
+                  background: sign === "+" ? "#e8f5e9" : "#fdeaea",
+                  lineHeight: 1.2,
+                }}
+                title="Cycle sign: + → − → null"
+              >
+                {sign}
+              </button>
             ) : (
-              <div style={{ display: "flex", gap: 4 }}>
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 <div>I: {impact}</div>
                 <div>C: {control}</div>
+
+                {sign && (
+                  <button
+                    className="nodrag"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      cycleSign();
+                    }}
+                    style={{
+                      fontSize: 10,
+                      padding: "1px 6px",
+                      borderRadius: 999,
+                      border: "1px solid #aaa",
+                      background: sign === "+" ? "#e8f5e9" : "#fdeaea",
+                    }}
+                    title="Cycle sign: + → − → null"
+                  >
+                    {sign}
+                  </button>
+                )}
               </div>
             )}
           </div>
