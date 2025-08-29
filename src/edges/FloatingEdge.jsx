@@ -30,12 +30,6 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   const [editing, setEditing] = useState(false);
 
   if (!sourceNode || !targetNode || !data || typeof data !== "object") {
-    console.warn("Skipping edge due to missing source/target/data", {
-      id,
-      sourceNode,
-      targetNode,
-      data,
-    });
     return null;
   }
 
@@ -45,15 +39,6 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
     !sourceNode.position ||
     !targetNode.position
   ) {
-    console.warn("Skipping edge due to invalid positions:", {
-      id,
-      sx,
-      sy,
-      tx,
-      ty,
-      sourceNode,
-      targetNode,
-    });
     return null;
   }
 
