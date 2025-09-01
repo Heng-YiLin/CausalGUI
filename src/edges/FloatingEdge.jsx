@@ -92,7 +92,7 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
 
   const cycleSign = () => {
     const next =
-      sign === null ? "+" : sign === "+" ? "-" : /* sign === '-' */ null;
+      sign === null ? "+" : sign === "+" ? "-" : null;
     updateEdgeData("sign", next);
   };
   const handleEdgeClick = () => setEditing(true);
@@ -136,9 +136,7 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
               background: "white",
               padding: "2px 4px",
               display: "inline-flex",
-              gap: "4px",
               borderRadius: 3,
-              boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
               alignItems: "center",
               justifyContent: "center",
               cursor: editing ? "text" : "grab",
@@ -188,15 +186,17 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
                     onBlur={handleBlur}
                     className="nodrag"
                     style={{
-                      width: 30,
+                      width: 20,
                       fontSize: 10,
                       padding: "1px 4px",
                       borderRadius: 3,
                       border: "1px solid #aaa",
+                      marginLeft:"2px",
+
                     }}
                   />
                 </label>
-                <label>
+                <label style={{marginLeft:"2px"}}>
                   C:
                   <input
                     value={control}
@@ -208,11 +208,13 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
                     onBlur={handleBlur}
                     className="nodrag"
                     style={{
-                      width: 30,
+                      width: 20,
                       fontSize: 10,
                       padding: "1px 4px",
                       borderRadius: 3,
                       border: "1px solid #aaa",
+                      marginLeft:"2px",
+
                     }}
                   />
                 </label>
@@ -224,9 +226,10 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
                   }}
                   style={{
                     fontSize: 10,
-                    padding: "1px 6px",
-                    borderRadius: 999,
-                    border: "1px solid #aaa",
+                    padding: "1px 4px",
+                    borderRadius: 3,
+                    width: 20,
+
                     background:
                       sign === null
                         ? "#fff"
@@ -234,6 +237,7 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
                         ? "#e8f5e9"
                         : "#fdeaea",
                     lineHeight: 1.2,
+                    marginLeft:"2px",
                   }}
                   title="Cycle sign: null → + → −"
                 >
@@ -242,7 +246,10 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
               </>
             ) : 
             sign ? (
-              // Show ONLY the sign chip when sign is "+" or "-"
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              <div>I: {impact}</div>
+              <div>C: {control}</div>
+
               <button
                 className="nodrag"
                 onClick={(e) => {
@@ -261,6 +268,7 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
               >
                 {sign}
               </button>
+            </div>
             ) : (
               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 <div>I: {impact}</div>
