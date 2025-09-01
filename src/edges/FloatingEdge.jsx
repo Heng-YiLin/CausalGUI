@@ -1,6 +1,8 @@
 import { useInternalNode, useReactFlow } from "@xyflow/react";
 import { getEdgeParams } from "./initalElements.js";
 import { useState, useRef, useEffect } from "react";
+import { Plus, Minus, CircleOff } from 'lucide-react';
+
 
 function getQuadraticPath(sx, sy, tx, ty, cx, cy) {
   return `M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`;
@@ -34,8 +36,8 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
     sign === "+"
       ? "#16a34a" // green
       : sign === "-"
-      ? "#dc2626" // red
-      : "#b1b1b7"; // neutral
+        ? "#dc2626" // red
+        : "#b1b1b7"; // neutral
 
   if (!sourceNode || !targetNode || !data || typeof data !== "object") {
     return null;
@@ -186,17 +188,18 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
                     onBlur={handleBlur}
                     className="nodrag"
                     style={{
+                      height:18,
                       width: 20,
                       fontSize: 10,
                       padding: "1px 4px",
                       borderRadius: 3,
                       border: "1px solid #aaa",
-                      marginLeft:"2px",
+                      marginLeft: "2px",
 
                     }}
                   />
                 </label>
-                <label style={{marginLeft:"2px"}}>
+                <label style={{ marginLeft: "2px" }}>
                   C:
                   <input
                     value={control}
@@ -209,11 +212,12 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
                     className="nodrag"
                     style={{
                       width: 20,
+                      height:18,
                       fontSize: 10,
                       padding: "1px 4px",
                       borderRadius: 3,
                       border: "1px solid #aaa",
-                      marginLeft:"2px",
+                      marginLeft: "2px",
 
                     }}
                   />
@@ -225,56 +229,30 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
                     cycleSign();
                   }}
                   style={{
-                    fontSize: 10,
-                    padding: "1px 4px",
-                    borderRadius: 3,
+                    marginLeft:2,
+                    height: 18,
                     width: 20,
-
-                    background:
-                      sign === null
-                        ? "#fff"
-                        : sign === "+"
-                        ? "#e8f5e9"
-                        : "#fdeaea",
-                    lineHeight: 1.2,
-                    marginLeft:"2px",
+                    padding: 0,            // let icon size define inner look
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    lineHeight: 1,         // remove weird text line spacing
+                    borderRadius: 4,
+                    border: "1px solid #aaa",
+                    background: sign === "+" ? "#e8f5e9" : sign === "-" ? "#fdeaea" : "#fff",
+                    cursor: "pointer",
+                    pointerEvents: "auto",
                   }}
                   title="Cycle sign: null → + → −"
                 >
-                  {sign === null ? "∅" : sign}
+                  {sign === "+" ? <Plus size={10} /> : sign === "-" ? <Minus size={10} /> : <CircleOff size={10} />}
                 </button>
               </>
-            ) : 
-            sign ? (
-              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-              <div>I: {impact}</div>
-              <div>C: {control}</div>
-
-              <button
-                className="nodrag"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  cycleSign(); // + → − → null
-                }}
-                style={{
-                  fontSize: 10,
-                  padding: "1px 6px",
-                  borderRadius: 999,
-                  border: "1px solid #aaa",
-                  background: sign === "+" ? "#e8f5e9" : "#fdeaea",
-                  lineHeight: 1.2,
-                }}
-                title="Cycle sign: + → − → null"
-              >
-                {sign}
-              </button>
-            </div>
-            ) : (
-              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                <div>I: {impact}</div>
-                <div>C: {control}</div>
-
-                {sign && (
+            ) :
+              sign ? (
+                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  <div>I: {impact}</div>
+                  <div>C: {control}</div>
                   <button
                     className="nodrag"
                     onClick={(e) => {
@@ -283,18 +261,50 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
                     }}
                     style={{
                       fontSize: 10,
-                      padding: "1px 6px",
-                      borderRadius: 999,
+                      padding: "2px 6px",
+                      borderRadius: 3,
                       border: "1px solid #aaa",
                       background: sign === "+" ? "#e8f5e9" : "#fdeaea",
+                      lineHeight: "12px",
+                      textAlign: "center",
+                      display: "inline-flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      height: "15px",
+                      verticalAlign: "middle",
                     }}
                     title="Cycle sign: + → − → null"
                   >
-                    {sign}
+                  {sign === "+" ? <Plus size={10} /> : sign === "-" ? <Minus size={10} /> : <CircleOff size={10} />}
+
                   </button>
-                )}
-              </div>
-            )}
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  <div>I: {impact}</div>
+                  <div>C: {control}</div>
+
+                  {sign && (
+                    <button
+                      className="nodrag"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        cycleSign();
+                      }}
+                      style={{
+                        fontSize: 10,
+                        padding: "1px 6px",
+                        borderRadius: 999,
+                        border: "1px solid #aaa",
+                        background: sign === "+" ? "#e8f5e9" : "#fdeaea",
+                      }}
+                      title="Cycle sign: + → − → null"
+                    >
+                  {sign === "+" ? <Plus size={10} /> : sign === "-" ? <Minus size={10} /> : <CircleOff size={10} />}
+                    </button>
+                  )}
+                </div>
+              )}
           </div>
         </foreignObject>
       )}
