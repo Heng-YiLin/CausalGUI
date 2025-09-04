@@ -30,6 +30,7 @@ const downloadNodesAndEdgesJson = () => {
       impact: e.data?.impact ?? 0,
       control: e.data?.control ?? 0,
       offset: e.data?.offset ?? 0,
+      sign: e.data?.sign ?? null, 
     },
     selected: e.selected ?? false,
   }));
@@ -43,7 +44,7 @@ const downloadNodesAndEdgesJson = () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "nodes_and_edges.json";
+  a.download = "causal_GUI_nodes_and_edges.json";
   a.click();
   URL.revokeObjectURL(url);
 };
