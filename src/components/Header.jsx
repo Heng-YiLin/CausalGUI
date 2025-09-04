@@ -48,7 +48,6 @@ const downloadNodesAndEdgesJson = () => {
   URL.revokeObjectURL(url);
 };
 
-
 const Header = ({ onImportJson }) => {
   return (
     <nav className="sticky top-0 z-30 w-full shadow-md">
@@ -61,6 +60,7 @@ const Header = ({ onImportJson }) => {
           </div>
           <div className="flex space-x-6">
             <Link to="/DDM">Direct Dependency Matrix</Link>
+            <Link to="/PM">Polarity Matrix</Link>
             <Link to="/FactorClassGraph">Factor Class Graph</Link>
             <button
               onClick={downloadCsv}

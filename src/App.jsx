@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import CLD from "./components/CLD";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Header from "./components/Header";
-import About from "./components/DDM";
+import DDM from "./components/DDM";
 import Contact from "./components/FactorClassGraph";
+import PM from "./components/PM";
 
 export default function App() {
   const sanitizeNodes = (nodes) =>
@@ -26,8 +27,7 @@ export default function App() {
       data: {
         ...edge.data,
         label: typeof edge.data?.label === "string" ? edge.data.label : "",
-        impact:
-          typeof edge.data?.impact === "number" ? edge.data.impact : 0,
+        impact: typeof edge.data?.impact === "number" ? edge.data.impact : 0,
         control: typeof edge.data?.control === "number" ? edge.data.control : 0,
         offset: typeof edge.data?.offset === "number" ? edge.data.offset : 0,
       },
@@ -113,7 +113,7 @@ export default function App() {
             <Route
               path="/DDM"
               element={
-                <About
+                <DDM
                   nodes={nodes}
                   edges={edges}
                   setNodes={setNodes}
@@ -122,6 +122,18 @@ export default function App() {
               }
             />
             <Route path="/FactorClassGraph" element={<Contact />} />
+
+            <Route
+              path="/PM"
+              element={
+                <PM
+                  nodes={nodes}
+                  edges={edges}
+                  setNodes={setNodes}
+                  setEdges={setEdges}
+                />
+              }
+            />
           </Routes>
         </div>
       </div>
