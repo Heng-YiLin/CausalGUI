@@ -15,42 +15,6 @@ function getNodeCenter(node) {
   return { cx: ax + w / 2, cy: ay + h / 2, w, h, ax, ay };
 }
 
-// Circle self-loop that STARTS & ENDS on the node border (tangent at bottom-left corner).
-// long=true  => 270° arc (big loop). long=false => 90° arc (small loop).
-// pad=0 touches the border exactly; increase pad (e.g. 6–10) to draw just outside the node.
-// Circular self-loop at bottom-left with FIXED endpoints on the node border.
-// offset -> radius (R). gap -> how far from the corner along each edge.
-// pad -> 0 touches border; >0 draws just outside to avoid overlap/shadow.
-// Circular self-loop at bottom-left with FIXED endpoints on the node border.
-// radius -> circle radius (use your data.offset). gap -> distance from corner along edges.
-// pad -> 0 touches the border; >0 draws just outside the node (avoid node shadow).
-function getSelfLoopCircleFixedBL(
-  node,
-  { radius = 40, gap = 14, pad = 0, long = true, clockwise = false } = {}
-) {
-  const { cx, cy, w, h } = getNodeCenter(node);
-  const R = Math.max(16, Math.min(400, Math.abs(radius || 40)));
-
-  const left = cx - w / 2;
-  const bottom = cy + h / 2;
-
-  // Fixed endpoints (do NOT depend on R)
-  const sx = left - pad; // on/just outside left edge
-  const sy = bottom - gap; // up from the corner
-  const ex = left + gap; // right from the corner
-  const ey = bottom + pad; // on/just outside bottom edge
-
-  // Ensure radius is valid for this chord
-  const chord = Math.hypot(ex - sx, ey - sy);
-  const effR = Math.max(R, chord / 2 + 0.1);
-
-  const largeArcFlag = long ? 1 : 0; // 270° vs 90°
-  const sweepFlag = clockwise ? 1 : 0;
-
-  const path = `M ${sx} ${sy} A ${effR} ${effR} 0 ${largeArcFlag} ${sweepFlag} ${ex} ${ey}`;
-  return { path };
-}
-
 function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
@@ -68,7 +32,6 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   const impact = data?.impact ?? 0;
   const control = data?.control ?? 0;
   const offset = data?.offset ?? 40;
-  const isSelfLoop = source === target;
 
   const strokeColor =
     sign === "+" ? "#16a34a" : sign === "-" ? "#dc2626" : "#b1b1b7";
@@ -90,42 +53,31 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   const handleEdgeClick = () => setEditing(true);
   const handleBlur = () => setEditing(false);
 
-  // --- Build path + drag projector ---
+  // --- Build path + drag projector (quadratic only) ---
   let edgePath = "";
-  let dragProjector = (dx, dy) => 0; // maps mouse delta to offset delta
-  if (isSelfLoop) {
-    const { path } = getSelfLoopCircleFixedBL(sourceNode, {
-      radius: Number(offset) || 40, // <- make sure it's a number
-      gap: data?.gap ?? 14,
-      pad: data?.pad ?? 0,
-      long: true, // 270° loop (false => 90°)
-      clockwise: false, // flip if you want the other direction
-    });
-    edgePath = path;
-    dragProjector = (_dx, dy) => dy; // vertical drag adjusts radius
-  } else {
-    const { sx, sy, tx, ty } = getEdgeParams(sourceNode, targetNode); // <-- declared with const here
-    if (
-      [sx, sy, tx, ty].some((v) => typeof v !== "number" || isNaN(v)) ||
-      !sourceNode.position ||
-      !targetNode.position
-    ) {
-      return null;
-    }
+  let dragProjector = (dx, dy) => 0;
 
-    const mx = (sx + tx) / 2;
-    const my = (sy + ty) / 2;
-    const dx = tx - sx;
-    const dy = ty - sy;
-    const len = Math.sqrt(dx * dx + dy * dy) || 1;
-    const perpX = -dy / len;
-    const perpY = dx / len;
-    const cx = mx + perpX * offset;
-    const cy = my + perpY * offset;
-
-    edgePath = getQuadraticPath(sx, sy, tx, ty, cx, cy);
-    dragProjector = (dxDrag, dyDrag) => dxDrag * perpX + dyDrag * perpY;
+  const { sx, sy, tx, ty } = getEdgeParams(sourceNode, targetNode);
+  if (
+    [sx, sy, tx, ty].some((v) => typeof v !== "number" || isNaN(v)) ||
+    !sourceNode.position ||
+    !targetNode.position
+  ) {
+    return null;
   }
+
+  const mx = (sx + tx) / 2;
+  const my = (sy + ty) / 2;
+  const dx = tx - sx;
+  const dy = ty - sy;
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  const perpX = -dy / len;
+  const perpY = dx / len;
+  const cx = mx + perpX * offset;
+  const cy = my + perpY * offset;
+
+  edgePath = getQuadraticPath(sx, sy, tx, ty, cx, cy);
+  dragProjector = (dxDrag, dyDrag) => dxDrag * perpX + dyDrag * perpY;
 
   // Auto label pos from path midpoint (works for both)
   useEffect(() => {
@@ -144,12 +96,7 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   }, [edgePath]);
   const onOffsetPointerDrag = (startOffset, dx, dy) => {
     const projected = dragProjector(dx, dy);
-    if (isSelfLoop) {
-      const next = Math.max(24, Math.min(160, startOffset + projected));
-      updateEdgeData("offset", next);
-    } else {
-      updateEdgeData("offset", startOffset + projected);
-    }
+    updateEdgeData("offset", startOffset + projected);
   };
 
   return (

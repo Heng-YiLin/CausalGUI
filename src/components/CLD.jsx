@@ -50,6 +50,7 @@ function sanitizeEdges(nodeList, eds) {
     (e) =>
       ids.has(e.source) &&
       ids.has(e.target) &&
+      e.source !== e.target &&
       e.source !== "rowLabel" &&
       e.target !== "rowLabel"
   );

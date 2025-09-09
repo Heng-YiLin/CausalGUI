@@ -67,6 +67,16 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
             valueSetter: numericValueSetter,
             valueFormatter: blankNullFormatter,
             cellClass: "cycle-cell",
+            cellStyle: (p) => {
+              const [colNodeId] = (p.colDef.field || "").split("_");
+              return p.data && p.data._rowNodeId === colNodeId
+                ? {
+                    backgroundColor: "#888888ff",
+                    color: "#3b3b3bff",
+                    pointerEvents: "none",
+                  }
+                : null;
+            },
             tooltipValueGetter: () =>
               "Click to cycle through values: null → 1 → 2 → 3",
           },
@@ -77,6 +87,16 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
             cellClass: "cycle-cell",
             valueSetter: numericValueSetter,
             valueFormatter: blankNullFormatter,
+            cellStyle: (p) => {
+              const [colNodeId] = (p.colDef.field || "").split("_");
+              return p.data && p.data._rowNodeId === colNodeId
+                ? {
+                    backgroundColor: "#888888ff",
+                    color: "#3b3b3bff",
+                    pointerEvents: "none",
+                  }
+                : null;
+            },
             tooltipValueGetter: () =>
               "Click to cycle through values: null → 0 → 1 → 2 → 3",
           },
@@ -85,7 +105,11 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
     ];
 
     const rows = nodeList.map((rowNode) => {
-      const row = { rowLabel: rowNode.data?.label || rowNode.id };
+      const row = {
+        rowLabel: rowNode.data?.label || rowNode.id,
+        _rowNodeId: rowNode.id,
+      };
+
       nodeList.forEach((colNode) => {
         const edge = edgeList.find(
           (e) => e.source === rowNode.id && e.target === colNode.id
@@ -170,6 +194,8 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
     const parts = field.split("_");
     const suffix = parts[1];
     if (suffix !== "I" && suffix !== "C") return; // only cycle on I/C columns
+    const [colNodeId] = parts;
+    if (params.data?._rowNodeId === colNodeId) return;
     const current = params.data[field] ?? null;
     const next = nextCycleValue(suffix, current);
     params.node.setDataValue(field, next); // triggers handleCellChange
