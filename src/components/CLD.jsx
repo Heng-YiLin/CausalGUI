@@ -88,7 +88,7 @@ function separateParallelEdges(eds) {
 
 const CLD = ({ nodes, setNodes, edges, setEdges }) => {
   const wrapperRef = useRef(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
   const [type] = useDnD();
 
   const nodeRadius = (id) => 36;
@@ -106,15 +106,20 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
         deg.set(e.target, (deg.get(e.target) || 0) + 1);
       });
 
-      // build d3 nodes/links (start from current positions)
-      const simNodes = nodes.map((n) => ({
-        id: n.id,
-        x: n.position.x + (Math.random() - 0.5) * 300, 
-        y: n.position.y + (Math.random() - 0.5) * 300,
-        vx: 0,
-        vy: 0,
-      }));
-
+      const cx = width / 2;
+      const cy = height / 2;
+      const R = Math.max(120, Math.min(cx, cy) - 60); // leave some margin
+      const simNodes = nodes.map((n) => {
+        const theta = Math.random() * Math.PI * 2;
+        const r = R * Math.sqrt(Math.random());
+        return {
+          id: n.id,
+          x: cx + r * Math.cos(theta),
+          y: cy + r * Math.sin(theta),
+          vx: 0,
+          vy: 0,
+        };
+      });
       const links = safeEdges.map((e) => ({
         source: e.source,
         target: e.target,
@@ -177,6 +182,7 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
         })
       );
       setEdges(() => separateParallelEdges(sanitizeEdges(nodes, safeEdges)));
+      requestAnimationFrame(() => fitView({ padding: 1, duration: 300 }));
     },
     [nodes, edges, setNodes, setEdges, wrapperRef]
   );
