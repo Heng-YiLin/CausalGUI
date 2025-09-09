@@ -37,6 +37,18 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
   const blankNullFormatter = (p) =>
     p.value === null || p.value === undefined ? "" : p.value;
 
+  const CYCLE_ORDER = {
+    I: [null, 1, 2, 3],
+    C: [null, 0, 1, 2, 3],
+  };
+
+  const nextCycleValue = (type, current) => {
+    const arr = CYCLE_ORDER[type];
+    const cur = current === undefined ? null : current;
+    const idx = arr.findIndex((v) => v === cur);
+    return arr[idx === -1 ? 0 : (idx + 1) % arr.length];
+  };
+
   const rebuildMatrix = (nodeList, edgeList) => {
     const columns = [
       {
@@ -51,16 +63,22 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
           {
             headerName: "I",
             field: `${node.id}_I`,
-            editable: true,
+            editable: false,
             valueSetter: numericValueSetter,
             valueFormatter: blankNullFormatter,
+            cellClass: "cycle-cell",
+            tooltipValueGetter: () =>
+              "Click to cycle through values: null → 1 → 2 → 3",
           },
           {
             headerName: "C",
             field: `${node.id}_C`,
-            editable: true,
+            editable: false,
+            cellClass: "cycle-cell",
             valueSetter: numericValueSetter,
             valueFormatter: blankNullFormatter,
+            tooltipValueGetter: () =>
+              "Click to cycle through values: null → 0 → 1 → 2 → 3",
           },
         ],
       })),
@@ -146,6 +164,16 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
     });
   };
 
+  const handleCellClick = (params) => {
+    const field = params.colDef?.field;
+    if (!field) return;
+    const parts = field.split("_");
+    const suffix = parts[1];
+    if (suffix !== "I" && suffix !== "C") return; // only cycle on I/C columns
+    const current = params.data[field] ?? null;
+    const next = nextCycleValue(suffix, current);
+    params.node.setDataValue(field, next); // triggers handleCellChange
+  };
   // === CSV Export Trigger ===
   useEffect(() => {
     const exportHandler = () => {
@@ -172,8 +200,9 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
           ref={gridRef}
           columnDefs={columnDefs}
           onCellValueChanged={handleCellChange}
+          onCellClicked={handleCellClick}
           stopEditingWhenCellsLoseFocus={true}
-          singleClickEdit={true}
+          singleClickEdit={false}
           defaultColDef={{ resizable: true, width: 80, editable: true }}
         />
       </div>
