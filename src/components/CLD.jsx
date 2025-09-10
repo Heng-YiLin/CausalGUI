@@ -55,8 +55,8 @@ function sanitizeEdges(nodeList, eds) {
       e.target !== "rowLabel"
   );
 }
-
 function separateParallelEdges(eds) {
+  // Group by unordered pair so A→B and B→A are together
   const key = (a, b) => (a < b ? `${a}__${b}` : `${b}__${a}`);
   const groups = new Map();
   eds.forEach((e) => {
@@ -66,16 +66,39 @@ function separateParallelEdges(eds) {
   });
 
   const updates = new Map();
+  const STEP = 100; // curve separation in px (bump up if you want more)
+  const EPS_SCALE = 0.06; // tiny epsilon to avoid perfect overlaps for same-direction multi-edges
+
   groups.forEach((arr) => {
     if (arr.length <= 1) return;
-    const step = 12;
-    const mid = (arr.length - 1) / 2;
-    arr.forEach((e, i) => updates.set(e.id, (i - mid) * step));
+
+    // Deterministic order (so offsets are stable across runs)
+    const sorted = [...arr].sort((a, b) => a.id.localeCompare(b.id));
+    const mid = (sorted.length - 1) / 2;
+
+    // Special nice case: exactly 2 edges (classic A→B & B→A)
+    if (sorted.length === 2) {
+      // Same positive magnitude for both; direction’s perpendicular will separate them
+      const mag = STEP * 0.5; // e.g., 9px
+      updates.set(sorted[0].id, mag);
+      updates.set(sorted[1].id, mag);
+      return;
+    }
+
+    // General case: symmetric magnitudes; add tiny unique epsilon so
+    // multiple edges in the SAME direction don’t stack perfectly.
+    sorted.forEach((e, i) => {
+      const mag = Math.abs((i - mid) * STEP);
+      const eps = (i / sorted.length) * STEP * EPS_SCALE; // tiny, deterministic
+      updates.set(e.id, mag + eps);
+    });
   });
 
   let changed = false;
   const next = eds.map((e) => {
-    const newOffset = updates.has(e.id) ? updates.get(e.id) : 0;
+    const newOffset = updates.has(e.id)
+      ? updates.get(e.id)
+      : e.data?.offset ?? 0;
     const prevOffset = e.data?.offset ?? 0;
     if (newOffset !== prevOffset) {
       changed = true;
@@ -127,8 +150,8 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
         w: Math.max(0, Math.min(1, (e.data?.impact ?? 0) / 10)),
       }));
       // -------- Force-directed preset (good at de-overlap) --------
-      const LINK_DIST_BASE = 170;
-      const LINK_DIST_MIN = 110;
+      const LINK_DIST_BASE = 250;
+      const LINK_DIST_MIN = 180;
       const LINK_STRENGTH_MIN = 0.03;
       const LINK_STRENGTH_MAX = 0.16;
       const CHARGE_BASE = -200;
