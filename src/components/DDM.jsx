@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import "@xyflow/react/dist/style.css";
 import { AllCommunityModule, ModuleRegistry } from "ag-grid-community";
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -10,13 +16,52 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
   const [rowData, setRowData] = useState([]);
   const [columnDefs, setColumnDefs] = useState([]);
   const gridRef = useRef(null);
-
+  const refreshTotals = (api) => api?.refreshCells({ force: true });
   // Excel Import
   const handleExcelUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
       parseExcelFile(file, setColumnDefs, setRowData, setNodes, setEdges);
     }
+  };
+  const getRowHeight = useCallback((params) => {
+    if (params.node?.rowPinned === "bottom") return 64; // try 64–72 for 2–3 lines
+    return undefined; // use default for normal rows
+  }, []);
+
+  // map numbers to green shades; null/undefined/0 => white
+  const valueToGreen = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) return "#ffffff";
+    if (n === 1) return "#a6f7cdff"; // light
+    if (n === 2) return "#5bc483ff"; // mid
+    return "#34d399"; // dark (3+)
+  };
+
+  // shared cellStyle for I/C
+  const colorizeIC = (p) => {
+    const [colNodeId] = (p.colDef.field || "").split("_");
+
+    // keep diagonal grey & disabled
+    if (
+      p.data &&
+      p.data._rowNodeId === colNodeId &&
+      p.node?.rowPinned !== "bottom"
+    ) {
+      return {
+        backgroundColor: "#888888ff",
+        color: "#3b3b3bff",
+        pointerEvents: "none",
+      };
+    }
+
+    // don't color pinned-bottom totals
+    if (p.node?.rowPinned === "bottom") return null;
+
+    const bg = valueToGreen(p.value);
+    // darker shade = darker text for contrast
+    const color = bg === "#34d399" ? "#063e2b" : "#111827";
+    return { backgroundColor: bg, color, textAlign: "center" };
   };
 
   // Reuse these in both "I" and "C" columns
@@ -49,13 +94,31 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
     return arr[idx === -1 ? 0 : (idx + 1) % arr.length];
   };
 
+  const pinnedBottomRows = useMemo(
+    () => [
+      { rowLabel: "Passive Impact Value (PIVi)", _pin: "I" },
+      { rowLabel: "Passive Control Value (PCVi)", _pin: "C" },
+    ],
+    []
+  );
+
   const rebuildMatrix = (nodeList, edgeList) => {
     const columns = [
       {
         headerName: "",
         field: "rowLabel",
         pinned: "left",
-        editable: true,
+        wrapText: true, // allow wrapping (we'll only enable it on pinned rows)
+        autoHeight: true, // let the row grow if it wraps
+        cellStyle: (p) =>
+          p.node?.rowPinned === "bottom"
+            ? {
+                whiteSpace: "normal",
+                lineHeight: 1.2,
+                paddingTop: 2,
+                paddingBottom: 2,
+              }
+            : { whiteSpace: "nowrap" }, // keep normal rows single-line
       },
       ...nodeList.map((node) => ({
         headerName: node.data?.label || node.id,
@@ -65,18 +128,25 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
             field: `${node.id}_I`,
             editable: false,
             valueSetter: numericValueSetter,
+            valueGetter: (p) => {
+              if (p.node?.rowPinned === "bottom") {
+                if (p.data?._pin === "I") {
+                  let sum = 0;
+                  p.api.forEachLeafNode((n) => {
+                    const rd = n.data;
+                    if (!rd || !rd._rowNodeId) return;
+                    const num = Number(rd[`${node.id}_I`]);
+                    if (Number.isFinite(num)) sum += num;
+                  });
+                  return sum;
+                }
+                return ""; // blank on the “C” total row
+              }
+              return p.data ? p.data[`${node.id}_I`] : null;
+            },
             valueFormatter: blankNullFormatter,
             cellClass: "cycle-cell",
-            cellStyle: (p) => {
-              const [colNodeId] = (p.colDef.field || "").split("_");
-              return p.data && p.data._rowNodeId === colNodeId
-                ? {
-                    backgroundColor: "#888888ff",
-                    color: "#3b3b3bff",
-                    pointerEvents: "none",
-                  }
-                : null;
-            },
+            cellStyle: colorizeIC,
             tooltipValueGetter: () =>
               "Click to cycle through values: null → 1 → 2 → 3",
           },
@@ -86,22 +156,74 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
             editable: false,
             cellClass: "cycle-cell",
             valueSetter: numericValueSetter,
-            valueFormatter: blankNullFormatter,
-            cellStyle: (p) => {
-              const [colNodeId] = (p.colDef.field || "").split("_");
-              return p.data && p.data._rowNodeId === colNodeId
-                ? {
-                    backgroundColor: "#888888ff",
-                    color: "#3b3b3bff",
-                    pointerEvents: "none",
-                  }
-                : null;
+            valueGetter: (p) => {
+              if (p.node?.rowPinned === "bottom") {
+                if (p.data?._pin === "C") {
+                  let sum = 0;
+                  p.api.forEachLeafNode((n) => {
+                    const rd = n.data;
+                    if (!rd || !rd._rowNodeId) return;
+                    const num = Number(rd[`${node.id}_C`]);
+                    if (Number.isFinite(num)) sum += num;
+                  });
+                  return sum;
+                }
+                return ""; // blank on the “C” total row
+              }
+              return p.data ? p.data[`${node.id}_C`] : null;
             },
+            valueFormatter: blankNullFormatter,
+            cellStyle: colorizeIC,
             tooltipValueGetter: () =>
               "Click to cycle through values: null → 0 → 1 → 2 → 3",
           },
         ],
       })),
+      // Sum of I and C
+      {
+        headerName: "Active Impact Value (AIVi)",
+        wrapHeaderText: true,
+        autoHeaderHeight: true,
+        pinned: "right",
+        lockPinned: true,
+        suppressMovable: true,
+        field: "_sumAI",
+        editable: false,
+        width: 60,
+        valueGetter: (p) => {
+          if (!p.data || !p.data._rowNodeId) return "";
+          let sum = 0;
+          for (const k in p.data) {
+            if (k.endsWith("_I")) {
+              const v = p.data[k];
+              if (typeof v === "number" && Number.isFinite(v)) sum += v;
+            }
+          }
+          return sum;
+        },
+      },
+      {
+        headerName: "Active Control Value (AIVi)",
+        wrapHeaderText: true,
+        autoHeaderHeight: true,
+        pinned: "right",
+        lockPinned: true,
+        suppressMovable: true,
+        field: "_sumAC",
+        editable: false,
+        width: 60,
+        valueGetter: (p) => {
+          if (!p.data || !p.data._rowNodeId) return "";
+          let sum = 0;
+          for (const k in p.data) {
+            if (k.endsWith("_C")) {
+              const v = p.data[k];
+              if (typeof v === "number" && Number.isFinite(v)) sum += v;
+            }
+          }
+          return sum;
+        },
+      },
     ];
 
     const rows = nodeList.map((rowNode) => {
@@ -119,10 +241,8 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
       });
       return row;
     });
-
     rows.push({ rowLabel: "" });
     setColumnDefs(columns);
-
     setRowData(rows);
   };
   // === Initialize matrix from props ===
@@ -186,6 +306,7 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
       window.dispatchEvent(new Event("storage-update"));
       return next;
     });
+    refreshTotals(params.api); // recompute pinned sums now
   };
 
   const handleCellClick = (params) => {
@@ -196,9 +317,11 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
     if (suffix !== "I" && suffix !== "C") return; // only cycle on I/C columns
     const [colNodeId] = parts;
     if (params.data?._rowNodeId === colNodeId) return;
+
     const current = params.data[field] ?? null;
     const next = nextCycleValue(suffix, current);
     params.node.setDataValue(field, next); // triggers handleCellChange
+    refreshTotals(params.api); // recompute pinned sums now
   };
   // === CSV Export Trigger ===
   useEffect(() => {
@@ -222,14 +345,17 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
       <div style={{ height: `calc(100vh - 150px)`, width: "100%" }}>
         <AgGridReact
           theme={themeBalham}
+          domLayout="autoHeight"
           rowData={rowData}
           ref={gridRef}
           columnDefs={columnDefs}
+          pinnedBottomRowData={pinnedBottomRows} // your two totals rows
+          getRowHeight={getRowHeight}
           onCellValueChanged={handleCellChange}
           onCellClicked={handleCellClick}
           stopEditingWhenCellsLoseFocus={true}
           singleClickEdit={false}
-          defaultColDef={{ resizable: true, width: 80, editable: true }}
+          defaultColDef={{ resizable: true, width: 90, editable: true }}
         />
       </div>
     </div>

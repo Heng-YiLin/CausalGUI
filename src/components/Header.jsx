@@ -30,7 +30,7 @@ const downloadNodesAndEdgesJson = () => {
       impact: e.data?.impact ?? 0,
       control: e.data?.control ?? 0,
       offset: e.data?.offset ?? 0,
-      sign: e.data?.sign ?? null, 
+      sign: e.data?.sign ?? null,
     },
     selected: e.selected ?? false,
   }));
@@ -62,6 +62,7 @@ const Header = ({ onImportJson }) => {
           <div className="flex space-x-6">
             <Link to="/DDM">Direct Dependency Matrix</Link>
             <Link to="/PM">Polarity Matrix</Link>
+            <Link to="/LoopID">Loops</Link>
             <Link to="/FactorClassGraph">Factor Class Graph</Link>
             <button
               onClick={downloadCsv}

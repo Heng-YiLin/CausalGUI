@@ -10,6 +10,39 @@ export default function DDMPolarityGrid({ nodes, edges, setNodes, setEdges }) {
   const [columnDefs, setColumnDefs] = useState([]);
   const gridRef = useRef(null);
 
+  // Polarity coloring
+  const polarityCellStyle = (p) => {
+    const base = {
+      textAlign: "center",
+      fontWeight: 600,
+      cursor: "pointer",
+      userSelect: "none",
+    };
+
+    // keep diagonal grey & non-interactive
+    const [colNodeId] = (p.colDef.field || "").split("_");
+    const isDiagonal = p.data && p.data._rowNodeId === colNodeId;
+    if (isDiagonal) {
+      return {
+        ...base,
+        backgroundColor: "#888888", // your existing grey
+        color: "#9ca3af",
+        pointerEvents: "none",
+        cursor: "default",
+      };
+    }
+
+    // color by polarity
+    if (p.value === "+") {
+      return { ...base, backgroundColor: "#e8f5e9", color: "#1b5e20" }; // green
+    }
+    if (p.value === "-") {
+      return { ...base, backgroundColor: "#fdeaea", color: "#b71c1c" }; // red
+    }
+    // empty
+    return { ...base, backgroundColor: "#ffffff", color: "#111827" };
+  };
+
   // === Build matrix with ONLY polarity (± or empty) ===
   const rebuildMatrix = (nodeList, edgeList) => {
     const columns = [
@@ -24,20 +57,16 @@ export default function DDMPolarityGrid({ nodes, edges, setNodes, setEdges }) {
         headerName: node.data?.label || node.id,
         field: `${node.id}_POL`,
         editable: false,
-        cellClass: "polarity-cell",
-        cellStyle: {
-          textAlign: "center",
-          fontWeight: 600,
-          cursor: "pointer",
-          userSelect: "none",
-        },
+        cellStyle: polarityCellStyle,
         valueFormatter: (p) =>
           p.value === "+" || p.value === "-" ? p.value : "",
       })),
     ];
-
     const rows = nodeList.map((rowNode) => {
-      const row = { rowLabel: rowNode.data?.label || rowNode.id };
+      const row = {
+        rowLabel: rowNode.data?.label || rowNode.id,
+        _rowNodeId: rowNode.id,
+      };
       nodeList.forEach((colNode) => {
         const edge = edgeList.find(
           (e) => e.source === rowNode.id && e.target === colNode.id
