@@ -7,14 +7,6 @@ function getQuadraticPath(sx, sy, tx, ty, cx, cy) {
   return `M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`;
 }
 
-function getNodeCenter(node) {
-  const ax = node?.internals?.positionAbsolute?.x ?? node?.position?.x ?? 0;
-  const ay = node?.internals?.positionAbsolute?.y ?? node?.position?.y ?? 0;
-  const w = node?.width ?? node?.measured?.width ?? 0;
-  const h = node?.height ?? node?.measured?.height ?? 0;
-  return { cx: ax + w / 2, cy: ay + h / 2, w, h, ax, ay };
-}
-
 function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
@@ -23,18 +15,51 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   const pathRef = useRef(null);
   const [labelPos, setLabelPos] = useState({ x: 0, y: 0 });
   const [editing, setEditing] = useState(false);
+  const labelRef = useRef(null);
 
   if (!sourceNode || !targetNode || !data || typeof data !== "object") {
     return null;
   }
 
   const sign = data?.sign ?? null;
-  const impact = data?.impact ?? 0;
-  const control = data?.control ?? 0;
+  const impact = data?.impact ?? null;
+  const control = data?.control ?? null;
   const offset = data?.offset ?? 40;
 
   const strokeColor =
     sign === "+" ? "#16a34a" : sign === "-" ? "#dc2626" : "#b1b1b7";
+
+  function nextImpact(val) {
+    const options = [null, 1, 2, 3];
+    const idx = options.indexOf(val);
+    return options[(idx + 1) % options.length];
+  }
+
+  function nextControl(val) {
+    const options = [null, 0, 1, 2, 3];
+    const idx = options.indexOf(val);
+    return options[(idx + 1) % options.length];
+  }
+
+  const handleImpactClick = () => {
+    setEdges((eds) =>
+      eds.map((e) =>
+        e.id === id
+          ? { ...e, data: { ...e.data, impact: nextImpact(e.data?.impact) } }
+          : e
+      )
+    );
+  };
+
+  const handleControlClick = () => {
+    setEdges((eds) =>
+      eds.map((e) =>
+        e.id === id
+          ? { ...e, data: { ...e.data, control: nextControl(e.data?.control) } }
+          : e
+      )
+    );
+  };
 
   const updateEdgeData = (field, value) => {
     setEdges((edges) =>
@@ -50,8 +75,10 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
     const next = sign === null ? "+" : sign === "+" ? "-" : null;
     updateEdgeData("sign", next);
   };
-  const handleEdgeClick = () => setEditing(true);
-  const handleBlur = () => setEditing(false);
+  const handleEdgeClick = (e) => {
+    e.stopPropagation();
+    setEditing((prev) => !prev); // ⬅️ toggle instead of always true
+  };
 
   // --- Build path + drag projector (quadratic only) ---
   let edgePath = "";
@@ -98,6 +125,32 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
     const projected = dragProjector(dx, dy);
     updateEdgeData("offset", startOffset + projected);
   };
+  useEffect(() => {
+    if (!editing) return;
+
+    const onDown = (e) => {
+      const path = typeof e.composedPath === "function" ? e.composedPath() : [];
+      const inside =
+        labelRef.current &&
+        (labelRef.current.contains(e.target) ||
+          path.includes(labelRef.current));
+
+      if (!inside) {
+        setEditing(false);
+      }
+    };
+
+    const onKey = (e) => {
+      if (e.key === "Escape") setEditing(false);
+    };
+
+    document.addEventListener("pointerdown", onDown, true); // capture phase
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [editing]);
 
   return (
     <>
@@ -115,7 +168,7 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
         onClick={handleEdgeClick}
       />
 
-      {(editing || sign || impact || control) && (
+      {(editing || sign !== null || impact !== null && control !== null) && (
         <foreignObject
           width={100}
           height={40}
@@ -124,6 +177,7 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
           requiredExtensions="http://www.w3.org/1999/xhtml"
         >
           <div
+            ref={labelRef}
             style={{
               fontSize: 10,
               background: "white",
@@ -173,48 +227,46 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
               <>
                 <label>
                   I:
-                  <input
-                    value={impact}
-                    onChange={(e) => {
-                      if (/^-?\d*\.?\d*$/.test(e.target.value)) {
-                        updateEdgeData("impact", e.target.value);
-                      }
-                    }}
-                    onBlur={handleBlur}
+                  <button
                     className="nodrag"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleImpactClick();
+                    }}
                     style={{
+                      marginLeft: 2,
                       height: 18,
-                      width: 20,
+                      width: 28,
                       fontSize: 10,
-                      padding: "1px 4px",
-                      borderRadius: 3,
                       border: "1px solid #aaa",
-                      marginLeft: "2px",
-                    }}
-                  />
-                </label>
-                <label style={{ marginLeft: "2px" }}>
-                  C:
-                  <input
-                    value={control}
-                    onChange={(e) => {
-                      if (/^-?\d*\.?\d*$/.test(e.target.value)) {
-                        updateEdgeData("control", e.target.value);
-                      }
-                    }}
-                    onBlur={handleBlur}
-                    className="nodrag"
-                    style={{
-                      width: 20,
-                      height: 18,
-                      fontSize: 10,
-                      padding: "1px 4px",
                       borderRadius: 3,
-                      border: "1px solid #aaa",
-                      marginLeft: "2px",
+                      background: "#f9f9f9",
+                      cursor: "pointer",
                     }}
-                  />
+                  >
+                    I: {impact ?? "∅"}
+                  </button>
                 </label>
+
+                <button
+                  className="nodrag"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleControlClick();
+                  }}
+                  style={{
+                    marginLeft: 2,
+                    height: 18,
+                    width: 28,
+                    fontSize: 10,
+                    border: "1px solid #aaa",
+                    borderRadius: 3,
+                    background: "#f9f9f9",
+                    cursor: "pointer",
+                  }}
+                >
+                  C: {control ?? "∅"}
+                </button>
                 <button
                   className="nodrag"
                   onClick={(e) => {
