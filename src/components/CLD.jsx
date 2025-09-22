@@ -310,7 +310,7 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
 
   return (
     <div className="flex" style={{ height: "100%" }}>
-      <div className="w-20 bg-gray-100 p-4">
+      <div className="w-15 bg-gray-100 p-4">
         <Sidebar />
       </div>
 
@@ -348,3 +348,4 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
 };
 
 export default CLD;
+

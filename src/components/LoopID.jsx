@@ -15,15 +15,16 @@ export default function LoopID({
   maxLen = 8,
   topK = 1000,
 }) {
-  const [loops, setLoops] = useState([]); // [{nodes, tag, rb}]
+  const [loops, setLoops] = useState([]); // [{nodes}]
+  const [sortMode, setSortMode] = useState("none"); // "none" | "R-first" | "B-first"
+  const [filterText, setFilterText] = useState("");
 
   const { vertices, adj, idToLabel, edgeMap } = useMemo(() => {
     const vs = [...nodes.map((n) => n.id)].sort();
     const adj = new Map(vs.map((id) => [id, []]));
     const idToLabel = new Map(nodes.map((n) => [n.id, n.data?.label || n.id]));
-    const edgeMap = new Map(); // "u→v" -> edge object
+    const edgeMap = new Map();
 
-    // Collapse parallel edges to the one with largest |impact|; ignore self-loops
     const best = new Map();
     for (const e of edges) {
       if (!vs.includes(e.source) || !vs.includes(e.target)) continue;
@@ -37,14 +38,12 @@ export default function LoopID({
       adj.get(e.source).push(e.target);
       edgeMap.set(`${e.source}→${e.target}`, e);
     }
-
     return { vertices: vs, adj, idToLabel, edgeMap };
   }, [nodes, edges]);
 
   useEffect(() => {
     const res = findAllCycles(vertices, adj, { maxLen, maxCount: topK });
 
-    // De-dupe by rotation (direction preserved)
     const seen = new Set();
     const uniq = [];
     for (const cyc of res) {
@@ -54,7 +53,7 @@ export default function LoopID({
       uniq.push(cyc);
     }
 
-    // Sort: by length, then by label string
+    // default ordering: length → label
     uniq.sort((a, b) => {
       if (a.length !== b.length) return a.length - b.length;
       const sa = toLoopString(a, idToLabel);
@@ -62,48 +61,216 @@ export default function LoopID({
       return sa.localeCompare(sb);
     });
 
-    // Decorate with parity tag + R/B
-    const decorated = uniq.map((cyc) => {
-      const { tag, rb } = polarityInfo(cyc, edgeMap);
-      return { nodes: cyc, tag, rb };
+    setLoops(uniq.map((nodes) => ({ nodes })));
+  }, [vertices, adj, idToLabel, edgeMap, maxLen, topK]);
+
+  // Apply sort mode (R-first / B-first). Uncoded last.
+  const sortedLoops = useMemo(() => {
+    const term = filterText.trim().toLowerCase();
+
+    // keep loops that contain a node whose label OR id includes the term
+    const matches = (loopNodes) => {
+      if (!term) return true;
+      for (const id of loopNodes) {
+        const label = String(idToLabel.get(id) ?? id).toLowerCase();
+        if (label.includes(term)) return true;
+      }
+      return false;
+    };
+
+    // 1) filter
+    const base = loops.filter(({ nodes }) => matches(nodes));
+
+    // 2) sort by chosen mode (R-first / B-first), uncoded last
+    const arr = [...base];
+    const rank = (nodes) => {
+      const { rb } = polarityInfo(nodes, edgeMap); // "R" | "B" | null
+      if (sortMode === "R-first") return rb === "R" ? 0 : rb === "B" ? 1 : 2;
+      if (sortMode === "B-first") return rb === "B" ? 0 : rb === "R" ? 1 : 2;
+      return 1;
+    };
+
+    arr.sort((A, B) => {
+      const rA = rank(A.nodes);
+      const rB = rank(B.nodes);
+      if (rA !== rB) return rA - rB;
+
+      // fallback: length → label for stable, readable ordering
+      if (A.nodes.length !== B.nodes.length)
+        return A.nodes.length - B.nodes.length;
+      const sa = toLoopString(A.nodes, idToLabel);
+      const sb = toLoopString(B.nodes, idToLabel);
+      return sa.localeCompare(sb);
     });
 
-    setLoops(decorated);
-  }, [vertices, adj, idToLabel, edgeMap, maxLen, topK]);
+    return arr;
+  }, [loops, sortMode, filterText, edgeMap, idToLabel]);
 
   return (
     <div style={{ padding: 12 }}>
-      <h3 style={{ marginBottom: 8 }}>
-        Loops ({loops.length}{loops.length === topK ? "+" : ""})
-      </h3>
+      {/* HEADER (search + clear + sort) */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          marginBottom: 8,
+          gap: 8,
+          flexWrap: "wrap",
+        }}
+      >
+        <h3 style={{ margin: 0 }}>
+          Loops (
+          {filterText
+            ? `${sortedLoops.length} of ${loops.length}`
+            : loops.length}
+          {loops.length === topK ? "+" : ""})
+        </h3>
 
-      {loops.length === 0 ? (
-        <div style={{ color: "#666" }}>No loops found.</div>
+        <div
+          style={{
+            marginLeft: "auto",
+            display: "flex",
+            gap: 6,
+            alignItems: "center",
+          }}
+        >
+          {/* Filter input */}
+          <div style={{ position: "relative" }}>
+            <input
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              placeholder="Filter by node name…"
+              style={{
+                padding: "6px 28px 6px 10px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                fontSize: 12,
+                width: 220,
+              }}
+            />
+            {filterText && (
+              <button
+                onClick={() => setFilterText("")}
+                aria-label="Clear"
+                style={{
+                  position: "absolute",
+                  right: 4,
+                  top: 3,
+                  padding: "2px 6px",
+                  borderRadius: 6,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  fontSize: 11,
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          {/* Sort buttons (reuse from earlier) */}
+          <SortButton
+            active={sortMode === "R-first"}
+            onClick={() =>
+              setSortMode(sortMode === "R-first" ? "none" : "R-first")
+            }
+            label="Reinforcing first"
+          />
+          <SortButton
+            active={sortMode === "B-first"}
+            onClick={() =>
+              setSortMode(sortMode === "B-first" ? "none" : "B-first")
+            }
+            label="Balancing first"
+          />
+        </div>
+      </div>
+
+      {sortedLoops.length === 0 ? (
+        <div style={{ color: "#666" }}>
+          {filterText ? (
+            <>
+              No loops match “<strong>{filterText}</strong>”.
+            </>
+          ) : (
+            "No loops found."
+          )}
+        </div>
       ) : (
         <div style={{ display: "grid", gap: 8 }}>
-          {loops.map(({ nodes, tag, rb }, i) => {
-            const trigger = (
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ fontFamily: "monospace" }}>
-                  {toLoopJSX(nodes, idToLabel, edgeMap)}
+          {sortedLoops.map(({ nodes }, i) => {
+            const key = canonicalKeyDirected(nodes) + ":" + i;
+            const { rbText, rbColor } = polarityInfo(nodes, edgeMap);
+
+            const Trigger = (open) => (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 12px",
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+                aria-label="toggle loop details"
+              >
+                <div style={{ fontFamily: "monospace", flex: "1 1 auto" }}>
+                  {toLoopJSX(nodes, idToLabel, edgeMap, filterText)}
                 </div>
+
                 <span style={{ color: "#555", fontSize: 12 }}>
-                  — {tag}{rb ? ` (${rb})` : ""}
+                  {rbText ? (
+                    <>
+                      (
+                      <span style={{ color: rbColor, fontWeight: 600 }}>
+                        {rbText}
+                      </span>
+                      )
+                    </>
+                  ) : (
+                    <>uncoded</>
+                  )}
+                </span>
+                <span
+                  style={{
+                    fontSize: "1.25em",
+                    lineHeight: 1,
+                    color: "#666",
+                    marginLeft: "auto",
+                  }}
+                >
+                  {open ? "▴" : "▾"}
                 </span>
               </div>
             );
+
             return (
-              <Collapsible
-                key={canonicalKeyDirected(nodes) + ":" + i}
-                trigger={trigger}
-                transitionTime={150}
+              <div
+                key={key}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  background: "#fff",
+                }}
               >
-                <LoopDetails
-                  nodes={nodes}
-                  idToLabel={idToLabel}
-                  edgeMap={edgeMap}
-                />
-              </Collapsible>
+                <Collapsible
+                  trigger={Trigger(false)}
+                  triggerWhenOpen={Trigger(true)}
+                  transitionTime={150}
+                >
+                  <div
+                    style={{ borderTop: "1px solid #eee", padding: "8px 12px" }}
+                  >
+                    <LoopDetails
+                      nodes={nodes}
+                      idToLabel={idToLabel}
+                      edgeMap={edgeMap}
+                    />
+                  </div>
+                </Collapsible>
+              </div>
             );
           })}
         </div>
@@ -112,17 +279,38 @@ export default function LoopID({
   );
 }
 
+/* --- tiny button component for the header --- */
+function SortButton({ active, onClick, label }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "6px 10px",
+        borderRadius: 8,
+        border: active ? "1px solid #2563eb" : "1px solid #e5e7eb",
+        background: active ? "#eff6ff" : "#fff",
+        color: active ? "#1d4ed8" : "#374151",
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: "pointer",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
 /* ---------------- details panel ---------------- */
 
 function LoopDetails({ nodes, idToLabel, edgeMap }) {
-  // rows: for each node u, show the edge u -> v(next)
   const N = nodes.length;
   const rows = [];
   for (let i = 0; i < N; i++) {
     const u = nodes[i];
     const v = nodes[(i + 1) % N];
     const e = edgeMap.get(`${u}→${v}`);
-    const sign = (e?.data?.sign === "+" || e?.data?.sign === "-") ? e.data.sign : null;
+    const sign =
+      e?.data?.sign === "+" || e?.data?.sign === "-" ? e.data.sign : null;
     const color = sign === "+" ? "#0a0" : sign === "-" ? "#c00" : "#888";
     rows.push({
       from: idToLabel.get(u) || u,
@@ -135,20 +323,12 @@ function LoopDetails({ nodes, idToLabel, edgeMap }) {
   }
 
   return (
-    <div
-      style={{
-        margin: "8px 0 12px",
-        border: "1px solid #eee",
-        borderRadius: 8,
-        overflow: "hidden",
-      }}
-    >
+    <div>
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr 90px 110px 110px",
-          padding: "8px 10px",
-          background: "#fafafa",
+          padding: "6px 0",
           fontWeight: 600,
           fontSize: 12,
           color: "#444",
@@ -166,7 +346,7 @@ function LoopDetails({ nodes, idToLabel, edgeMap }) {
           style={{
             display: "grid",
             gridTemplateColumns: "1fr 1fr 90px 110px 110px",
-            padding: "8px 10px",
+            padding: "8px 0",
             alignItems: "center",
             borderTop: "1px solid #eee",
             fontSize: 13,
@@ -174,11 +354,9 @@ function LoopDetails({ nodes, idToLabel, edgeMap }) {
         >
           <div style={{ fontFamily: "monospace" }}>{r.from}</div>
           <div style={{ fontFamily: "monospace" }}>{r.to}</div>
-          <div style={{ color: r.color, fontWeight: 600 }}>
-            {r.sign ?? "—"}
-          </div>
-          <div>{isNil(r.impact) ? "—" : r.impact}</div>
-          <div>{isNil(r.control) ? "—" : r.control}</div>
+          <div style={{ color: r.color, fontWeight: 600 }}>{r.sign ?? "—"}</div>
+          <div>{r.impact ?? "—"}</div>
+          <div>{r.control ?? "—"}</div>
         </div>
       ))}
     </div>
@@ -198,13 +376,13 @@ function findAllCycles(vertices, adj, { maxLen = 8, maxCount = 1000 } = {}) {
 
     for (const w of adj.get(v) || []) {
       const wIdx = idx.get(w);
-      if (wIdx < startIdx) continue;                  // root at min vertex
+      if (wIdx < startIdx) continue; // root at min vertex
       if (w === start && path.length >= 2) {
-        result.push([...path]);                       // found cycle
+        result.push([...path]); // found cycle
         if (result.length >= maxCount) return;
         continue;
       }
-      if (onPath.has(w)) continue;                    // simple (no repeats)
+      if (onPath.has(w)) continue; // simple (no repeats)
       if (path.length + 1 > maxLen) continue;
 
       onPath.add(w);
@@ -239,30 +417,52 @@ function toLoopString(nodes, idToLabel, close = true) {
   return close ? `${labels.join(" → ")} → ${labels[0]}` : labels.join(" → ");
 }
 
-// Normalize sign and color arrows; larger arrows requested
+// Normalize sign and color arrows; larger arrows
 function edgeSign(u, v, edgeMap) {
   const s = edgeMap.get(`${u}→${v}`)?.data?.sign;
   return s === "+" || s === "-" ? s : null;
 }
 
 // Colored + larger arrows JSX
-function toLoopJSX(nodes, idToLabel, edgeMap) {
+function toLoopJSX(nodes, idToLabel, edgeMap, highlightTerm = "") {
+  const term = highlightTerm.trim().toLowerCase();
   const parts = [];
   const N = nodes.length;
+
+  const renderLabel = (id, key) => {
+    const text = idToLabel.get(id) || id;
+    if (!term || !String(text).toLowerCase().includes(term)) {
+      return (
+        <span key={key} style={{ marginRight: 4 }}>
+          {text}
+        </span>
+      );
+    }
+    const t = String(text);
+    const i = t.toLowerCase().indexOf(term);
+    const before = t.slice(0, i);
+    const mid = t.slice(i, i + term.length);
+    const after = t.slice(i + term.length);
+    return (
+      <span key={key} style={{ marginRight: 4 }}>
+        {before}
+        <span
+          style={{ background: "#fff3bf", borderRadius: 3, padding: "0 2px" }}
+        >
+          {mid}
+        </span>
+        {after}
+      </span>
+    );
+  };
+
   for (let i = 0; i < N; i++) {
     const u = nodes[i];
     const v = nodes[(i + 1) % N];
-    const labelU = idToLabel.get(u) || u;
     const sign = edgeSign(u, v, edgeMap);
     const color = sign === "+" ? "#0a0" : sign === "-" ? "#c00" : "#888";
 
-    // node label
-    parts.push(
-      <span key={`n-${i}`} style={{ marginRight: 4 }}>
-        {labelU}
-      </span>
-    );
-    // arrow to next (bigger + bold)
+    parts.push(renderLabel(u, `n-${i}`));
     parts.push(
       <span
         key={`a-${i}`}
@@ -277,12 +477,7 @@ function toLoopJSX(nodes, idToLabel, edgeMap) {
       </span>
     );
   }
-  // close label
-  parts.push(
-    <span key="close-label" style={{ marginLeft: 4 }}>
-      {idToLabel.get(nodes[0]) || nodes[0]}
-    </span>
-  );
+  parts.push(renderLabel(nodes[0], "close-label"));
   return <>{parts}</>;
 }
 
@@ -295,15 +490,27 @@ function polarityInfo(nodes, edgeMap) {
   for (const [u, v] of edges) {
     const s = edgeMap.get(`${u}→${v}`)?.data?.sign;
     if (s === "-") neg++;
-    else if (s !== "+") nul++; // treat everything except "+" and "-" as null/uncoded
+    else if (s !== "+") nul++; // anything not "+" or "-" is uncoded
   }
 
-  if (nul > 0) return { tag: "uncoded", rb: null };
-  const rb = neg % 2 === 0 ? "R" : "B";
-  const tag = neg % 2 === 0 ? "even negatives" : "odd negatives";
-  return { tag, rb };
+  // Any null/undefined sign => uncoded
+  if (nul > 0) return { tag: "uncoded", rb: null, rbText: null, rbColor: null };
+
+  const reinforcing = neg % 2 === 0;
+  return {
+    tag: null,
+    rb: reinforcing ? "R" : "B",
+    rbText: reinforcing ? "Reinforcing" : "Balancing",
+    rbColor: reinforcing ? "#c00" : "#06c", // R=red, B=blue
+  };
 }
 
-function isNil(x) {
-  return x === null || x === undefined;
-}
+
+// adam partially empty cycle
+//group more visually
+// does he want to see polarity in the ddm
+// more detailed edge for loops
+// sort loop by length node
+//search node filter feature
+//update
+//ask adam about labelings- use button to trigger labeling

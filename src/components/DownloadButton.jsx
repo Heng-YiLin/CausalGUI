@@ -1,6 +1,8 @@
 import React from 'react';
 import { Panel, useReactFlow, getViewportForBounds } from '@xyflow/react';
 import { toPng } from 'html-to-image';
+import { ImageDown } from "lucide-react";
+
 
 function downloadImage(dataUrl) {
   const a = document.createElement('a');
@@ -62,7 +64,7 @@ function DownloadButton() {
       style={{ marginTop: '1rem' }}
       onClick={onClick}
     >
-      Download Image
+      <ImageDown style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} />
     </button>
   );
 }
