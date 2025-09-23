@@ -16,6 +16,10 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   const [labelPos, setLabelPos] = useState({ x: 0, y: 0 });
   const [editing, setEditing] = useState(false);
   const labelRef = useRef(null);
+  const handleRef = useRef(null);
+  const ignoreNextOutside = useRef(false);
+  const isDragging = useRef(false);
+  
 
   if (!sourceNode || !targetNode || !data || typeof data !== "object") {
     return null;
@@ -127,27 +131,39 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   };
   useEffect(() => {
     if (!editing) return;
-
+  
     const onDown = (e) => {
+      if (ignoreNextOutside.current) {
+        ignoreNextOutside.current = false;
+        return;
+      }
+  
       const path = typeof e.composedPath === "function" ? e.composedPath() : [];
-      const inside =
+  
+      const insideLabel =
         labelRef.current &&
-        (labelRef.current.contains(e.target) ||
-          path.includes(labelRef.current));
-
-      if (!inside) {
+        (labelRef.current.contains(e.target) || path.includes(labelRef.current));
+  
+      const insideHandle =
+        handleRef.current &&
+        (handleRef.current === e.target || path.includes(handleRef.current));
+  
+      if (!insideLabel && !insideHandle) {
         setEditing(false);
       }
     };
-
+  
     const onKey = (e) => {
       if (e.key === "Escape") setEditing(false);
     };
-
-    document.addEventListener("pointerdown", onDown, true); // capture phase
+  
+    // ADD listeners (bubble phase)
+    document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
+  
     return () => {
-      document.removeEventListener("pointerdown", onDown, true);
+      // REMOVE listeners
+      document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
     };
   }, [editing]);
@@ -168,7 +184,8 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
         onClick={handleEdgeClick}
       />
 
-      {(editing || sign !== null || impact !== null && control !== null) && (
+{(editing || sign !== null || impact !== null || control !== null) && (
+
         <foreignObject
           width={100}
           height={40}
@@ -191,9 +208,9 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
               minHeight: 20,
             }}
             onPointerDown={(e) => {
+              e.stopPropagation();  
               if (!editing) {
                 e.preventDefault();
-                e.stopPropagation();
                 const startX = e.clientX;
                 const startY = e.clientY;
                 const startOffset = offset;
@@ -218,6 +235,7 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
                 window.addEventListener("pointerup", onUp);
               }
             }}
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               setEditing(true);
@@ -374,18 +392,24 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
           </div>
         </foreignObject>
       )}
-      {editing && (
+      {(editing || isDragging.current)&& (
         <circle
+        className="nodrag nopan"
+        ref={handleRef}  
           cx={labelPos.x - 60} // 10px left of the label box (label width is ~100)
           cy={labelPos.y - 5} // same vertical center
           r={7}
           fill="#fff"
           stroke="#333"
           strokeWidth={1.5}
-          style={{ cursor: "grab", pointerEvents: "all" }}
+          onClick={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          style={{ cursor: "grab", pointerEvents: "all", touchAction: "none" }}
           onPointerDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
+            ignoreNextOutside.current = true;
+            try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
             const startX = e.clientX;
             const startY = e.clientY;
             const startOffset = offset;
@@ -397,6 +421,8 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
             };
 
             const onUp = () => {
+              try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+              isDragging.current = false;   
               window.removeEventListener("pointermove", onMove);
               window.removeEventListener("pointerup", onUp);
             };
