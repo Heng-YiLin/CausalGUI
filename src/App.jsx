@@ -6,6 +6,7 @@ import DDM from "./components/DDM";
 import Contact from "./components/FactorClassGraph";
 import PM from "./components/PM";
 import LoopID from "./components/LoopID";
+import Export from "./components/Export";
 
 export default function App() {
   const sanitizeNodes = (nodes) =>
@@ -156,6 +157,19 @@ export default function App() {
               path="/LoopID"
               element={
                 <LoopID
+                  nodes={nodes}
+                  edges={edges}
+                  setNodes={setNodes}
+                  setEdges={setEdges}
+                  onUpdateEdgeData={updateEdgeData}
+                  editable
+                />
+              }
+            />
+            <Route
+              path="/Export"
+              element={
+                <Export
                   nodes={nodes}
                   edges={edges}
                   setNodes={setNodes}
