@@ -45,6 +45,23 @@ export default function App() {
     return sanitizeEdges(raw);
   });
 
+  // Function to update an edge's data and persist to localStorage
+  const updateEdgeData = (edgeId, patch) => {
+    setEdges((curr) => {
+      const next = curr.map((e) =>
+        e.id === edgeId ? { ...e, data: { ...e.data, ...patch } } : e
+      );
+      try {
+        localStorage.setItem("savedEdges", JSON.stringify(next));
+        // notify any listeners (e.g., CLD / DDM) that rely on localStorage
+        window.dispatchEvent(new Event("storage-update"));
+      } catch (err) {
+        console.warn("Failed to persist edges to localStorage", err);
+      }
+      return next;
+    });
+  };
+
   useEffect(() => {
     localStorage.setItem("savedNodes", JSON.stringify(nodes));
   }, [nodes]);
@@ -143,6 +160,8 @@ export default function App() {
                   edges={edges}
                   setNodes={setNodes}
                   setEdges={setEdges}
+                  onUpdateEdgeData={updateEdgeData}
+                  editable
                 />
               }
             />

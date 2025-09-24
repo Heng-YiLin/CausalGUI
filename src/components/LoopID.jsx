@@ -8,12 +8,27 @@ import Collapsible from "react-collapsible";
  * - Parity:
  *   - if ANY null/undefined sign in the cycle => tag "uncoded", no R/B
  *   - else even # of "-" => R, odd # of "-" => B
+ * - Impact/Control cells are clickable (when editable) and cycle through [null,0,1,2,3,4,5].
+ *
+ *   Props:
+ *   - nodes: array of node objects
+ *   - edges: array of edge objects
+ *   - maxLen: max cycle length
+ *   - topK: max number of cycles
+ *   - node?: focused node object from parent
+ *   - id?: focused node id from parent
+ *   - onUpdateEdgeData?: function (edgeId, patch) to mutate edge.data
+ *   - editable?: boolean to show/hide editing controls
  */
 export default function LoopID({
   nodes = [],
   edges = [],
   maxLen = 8,
   topK = 1000,
+  node = null, // optional: focused node object from parent
+  id = null, // optional: focused node id from parent
+  onUpdateEdgeData = null, // optional callback(edgeId, patch)
+  editable = true, // show buttons when true
 }) {
   const [loops, setLoops] = useState([]); // [{nodes}]
   const [sortMode, setSortMode] = useState("none"); // "none" | "R-first" | "B-first"
@@ -63,6 +78,19 @@ export default function LoopID({
 
     setLoops(uniq.map((nodes) => ({ nodes })));
   }, [vertices, adj, idToLabel, edgeMap, maxLen, topK]);
+
+  // Suppress unused node/id if not used
+  void node;
+  void id;
+
+  // expose a small helper to child components
+  const updateEdgeData = (edgeId, patch) => {
+    if (typeof onUpdateEdgeData === "function") {
+      onUpdateEdgeData(edgeId, patch);
+    } else {
+      console.warn("LoopID.onUpdateEdgeData not provided");
+    }
+  };
 
   // Apply sort mode (R-first / B-first). Uncoded last.
   const sortedLoops = useMemo(() => {
@@ -267,6 +295,8 @@ export default function LoopID({
                       nodes={nodes}
                       idToLabel={idToLabel}
                       edgeMap={edgeMap}
+                      onUpdateEdgeData={updateEdgeData}
+                      editable={editable}
                     />
                   </div>
                 </Collapsible>
@@ -302,7 +332,13 @@ function SortButton({ active, onClick, label }) {
 
 /* ---------------- details panel ---------------- */
 
-function LoopDetails({ nodes, idToLabel, edgeMap }) {
+function LoopDetails({
+  nodes,
+  idToLabel,
+  edgeMap,
+  onUpdateEdgeData,
+  editable = true,
+}) {
   const N = nodes.length;
   const rows = [];
   for (let i = 0; i < N; i++) {
@@ -313,6 +349,7 @@ function LoopDetails({ nodes, idToLabel, edgeMap }) {
       e?.data?.sign === "+" || e?.data?.sign === "-" ? e.data.sign : null;
     const color = sign === "+" ? "#0a0" : sign === "-" ? "#c00" : "#888";
     rows.push({
+      edgeId: e?.id,
       from: idToLabel.get(u) || u,
       to: idToLabel.get(v) || v,
       sign,
@@ -322,12 +359,38 @@ function LoopDetails({ nodes, idToLabel, edgeMap }) {
     });
   }
 
+  // Value cycling helpers
+  const IMPACT_CYCLE = [null, 1, 2, 3];
+  const CONTROL_CYCLE = [null, 0, 1, 2, 3];
+  const SIGN_CYCLE = [null, "+", "-"];
+
+  const nextFromCycle = (curr, cycle) => {
+    const i = cycle.findIndex((v) => v === curr);
+    const nextIdx = i === -1 ? 0 : (i + 1) % cycle.length;
+    return cycle[nextIdx];
+  };
+  const handleSignClick = (edgeId, curr) => {
+    const i = SIGN_CYCLE.findIndex((v) => v === curr);
+    const next = SIGN_CYCLE[i === -1 ? 0 : (i + 1) % SIGN_CYCLE.length];
+    onUpdateEdgeData?.(edgeId, { sign: next });
+  };
+
+  const handleImpactClick = (edgeId, curr) => {
+    const next = nextFromCycle(curr, IMPACT_CYCLE);
+    onUpdateEdgeData?.(edgeId, { impact: next });
+  };
+
+  const handleControlClick = (edgeId, curr) => {
+    const next = nextFromCycle(curr, CONTROL_CYCLE);
+    onUpdateEdgeData?.(edgeId, { control: next });
+  };
+
   return (
     <div>
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr 90px 110px 110px",
+          gridTemplateColumns: "1fr 1fr 90px 160px 160px",
           padding: "6px 0",
           fontWeight: 600,
           fontSize: 12,
@@ -336,16 +399,16 @@ function LoopDetails({ nodes, idToLabel, edgeMap }) {
       >
         <div>From</div>
         <div>To</div>
-        <div>Sign</div>
-        <div>Impact</div>
-        <div>Control</div>
+        <div>{editable ? "Sign (tap to cycle)" : "Sign"}</div>
+        <div>{editable ? "Impact (tap to cycle)" : "Impact"}</div>
+        <div>{editable ? "Control (tap to cycle)" : "Control"}</div>
       </div>
       {rows.map((r, idx) => (
         <div
           key={idx}
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr 90px 110px 110px",
+            gridTemplateColumns: "1fr 1fr 90px 160px 160px",
             padding: "8px 0",
             alignItems: "center",
             borderTop: "1px solid #eee",
@@ -354,9 +417,80 @@ function LoopDetails({ nodes, idToLabel, edgeMap }) {
         >
           <div style={{ fontFamily: "monospace" }}>{r.from}</div>
           <div style={{ fontFamily: "monospace" }}>{r.to}</div>
-          <div style={{ color: r.color, fontWeight: 600 }}>{r.sign ?? "—"}</div>
-          <div>{r.impact ?? "—"}</div>
-          <div>{r.control ?? "—"}</div>
+          <div>
+            {editable ? (
+              <button
+                onClick={() => handleSignClick(r.edgeId, r.sign)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  fontSize: 12,
+                  cursor: "pointer",
+                  minWidth: 64,
+                  color:
+                    r.sign === "+" ? "#0a0" : r.sign === "-" ? "#c00" : "#666",
+                  fontWeight: 600,
+                }}
+                aria-label="Cycle sign"
+                disabled={!r.edgeId}
+                title="Cycle sign"
+              >
+                {r.sign ?? "—"}
+              </button>
+            ) : (
+              <span style={{ color: r.color, fontWeight: 600 }}>
+                {r.sign ?? "—"}
+              </span>
+            )}
+          </div>
+          <div>
+            {editable ? (
+              <button
+                onClick={() => handleImpactClick(r.edgeId, r.impact)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  fontSize: 12,
+                  cursor: "pointer",
+                  minWidth: 64,
+                }}
+                aria-label="Cycle impact value"
+                disabled={!r.edgeId}
+                title="Cycle impact"
+              >
+                {r.impact ?? "—"}
+              </button>
+            ) : (
+              r.impact ?? "—"
+            )}
+          </div>
+          <div>
+            {editable ? (
+              <button
+                onClick={() => handleControlClick(r.edgeId, r.control)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  fontSize: 12,
+                  cursor: "pointer",
+                  minWidth: 64,
+                }}
+                aria-label="Cycle control value"
+                disabled={!r.edgeId}
+                title="Cycle control"
+              >
+                {r.control ?? "—"}
+              </button>
+            ) : (
+              r.control ?? "—"
+            )}
+          </div>
         </div>
       ))}
     </div>
@@ -364,7 +498,6 @@ function LoopDetails({ nodes, idToLabel, edgeMap }) {
 }
 
 /* ---------------- helpers ---------------- */
-
 // DFS with least-vertex rooting (Johnson-style constraint)
 function findAllCycles(vertices, adj, { maxLen = 8, maxCount = 1000 } = {}) {
   const idx = new Map(vertices.map((v, i) => [v, i]));
@@ -504,7 +637,6 @@ function polarityInfo(nodes, edgeMap) {
     rbColor: reinforcing ? "#c00" : "#06c", // R=red, B=blue
   };
 }
-
 
 // adam partially empty cycle
 //group more visually
