@@ -7,7 +7,7 @@ const Header = ({ onImportJson }) => {
     <nav className="sticky top-0 z-30 w-full shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
-          <div className="text-2xl font-bold text-gray-900">
+          <div className="text-2xl font-bold text-gray-900 sm:px-6">
             <Link to="/">
               <img src={Logo} alt="Logo" />
             </Link>
