@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import "@xyflow/react/dist/style.css";
-import FactorQuadChart from "./Graphs/FactorQuadChart"
+import FactorQuadChart from "./Graphs/FactorQuadChart";
 
 // AG Grid (Theming API)
 import { AgGridReact } from "ag-grid-react";
@@ -98,8 +98,10 @@ export default function FactorClassGraph({
     }
 
     for (const [, m] of byId.entries()) {
-      m.rawWeightedActiveValue = m.impactWeight * m.aiv + (1 - m.impactWeight) * m.acv;
-      m.rawWeightedPassiveValue = m.impactWeight * m.piv + (1 - m.impactWeight) * m.pcv;
+      m.rawWeightedActiveValue =
+        m.impactWeight * m.aiv + (1 - m.impactWeight) * m.acv;
+      m.rawWeightedPassiveValue =
+        m.impactWeight * m.piv + (1 - m.impactWeight) * m.pcv;
     }
     return byId;
   };
@@ -139,10 +141,22 @@ export default function FactorClassGraph({
       const rawWeightedPassiveValue = m.rawWeightedPassiveValue ?? null;
 
       const norm = (v, min, max) =>
-        Number.isFinite(v) && max > min ? ((v - min) / (max - min)) * 100 : (Number.isFinite(v) ? 100 : null);
+        Number.isFinite(v) && max > min
+          ? ((v - min) / (max - min)) * 100
+          : Number.isFinite(v)
+          ? 100
+          : null;
 
-      const normalisedWeightedActiveValue = norm(rawWeightedActiveValue, ranges.minAct, ranges.maxAct);
-      const normalisedWeightedPassiveValue = norm(rawWeightedPassiveValue, ranges.minPas, ranges.maxPas);
+      const normalisedWeightedActiveValue = norm(
+        rawWeightedActiveValue,
+        ranges.minAct,
+        ranges.maxAct
+      );
+      const normalisedWeightedPassiveValue = norm(
+        rawWeightedPassiveValue,
+        ranges.minPas,
+        ranges.maxPas
+      );
 
       return {
         alpha: alphaLabel(i),
@@ -165,8 +179,12 @@ export default function FactorClassGraph({
     const p = props?.data?.piv ?? "—";
     return (
       <div style={{ display: "flex", gap: 12 }}>
-        <span><strong>AIV</strong>: {a}</span>
-        <span><strong>PIV</strong>: {p}</span>
+        <span>
+          <strong>AIV</strong>: {a}
+        </span>
+        <span>
+          <strong>PIV</strong>: {p}
+        </span>
       </div>
     );
   };
@@ -176,8 +194,12 @@ export default function FactorClassGraph({
     const p = props?.data?.pcv ?? "—";
     return (
       <div style={{ display: "flex", gap: 12 }}>
-        <span><strong>ACV</strong>: {a}</span>
-        <span><strong>PCV</strong>: {p}</span>
+        <span>
+          <strong>ACV</strong>: {a}
+        </span>
+        <span>
+          <strong>PCV</strong>: {p}
+        </span>
       </div>
     );
   };
@@ -262,8 +284,15 @@ export default function FactorClassGraph({
           <p style={{ margin: 0 }}>
             <strong>Factor Class – Phase 1 (QSEM)</strong>
           </p>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-            Impact weight
+          <label
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 18,
+            }}
+          >
+            <strong>Impact weight</strong>
             <input
               type="number"
               step="0.01"
@@ -272,16 +301,19 @@ export default function FactorClassGraph({
               value={impactWeight}
               onChange={(e) => {
                 const next = Number(e.target.value);
-                const clamped = Math.max(0, Math.min(1, Number.isFinite(next) ? next : 0));
+                const clamped = Math.max(
+                  0,
+                  Math.min(1, Number.isFinite(next) ? next : 0)
+                );
                 onChangeImpactWeight(clamped);
               }}
-              style={{ width: 88 }}
+              style={{ width: 88, minWidth: 88, flexShrink: 0, borderWidth: 1 ,borderRadius:5}}
             />
           </label>
         </div>
       </div>
 
-      <div style={{ width: "100%", height: 480 }}>
+      <div style={{ width: "100%", height: 300 }}>
         <AgGridReact
           theme={themeBalham}
           getRowId={(params) => params.data.alpha}
@@ -292,7 +324,32 @@ export default function FactorClassGraph({
           suppressFieldDotNotation={true}
         />
       </div>
-      <FactorQuadChart nodes={coerceNodes} edges={coerceEdges} impactWeight={impactWeight} />
+      <div style={{ display: "flex", gap: 5, marginTop: 10 }}>
+        {/* Raw Values Chart */}
+        <div style={{ flex: 1 }}>
+          <h3 style={{ textAlign: "center", marginBottom: 8 }}>
+            Raw Weighted Values
+          </h3>
+          <FactorQuadChart
+            nodes={coerceNodes}
+            edges={coerceEdges}
+            impactWeight={impactWeight}
+          />
+        </div>
+
+        {/* Normalised Values Chart */}
+        <div style={{ flex: 1 }}>
+          <h3 style={{ textAlign: "center", marginBottom: 8 }}>
+            Normalised Weighted Values
+          </h3>
+          <FactorQuadChart
+            nodes={coerceNodes}
+            edges={coerceEdges}
+            impactWeight={impactWeight}
+            useNormalised={true}
+          />
+        </div>
+      </div>
     </div>
   );
 }

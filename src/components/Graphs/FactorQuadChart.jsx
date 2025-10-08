@@ -63,24 +63,46 @@ export default function FactorQuadChart({
   nodes = [],
   edges = [],
   impactWeight = 0.5,
-  height = 420,
+  height = 500,
+  useNormalised = false,
 }) {
   const metricsById = useMemo(
     () => computeActiveMetrics(nodes, edges, impactWeight),
     [nodes, edges, impactWeight]
   );
+  // compute min/max for normalisation
+  const ranges = useMemo(() => {
+    const actVals = [];
+    const pasVals = [];
+    for (const n of nodes) {
+      const m = metricsById.get(n.id);
+      if (Number.isFinite(m?.wav)) actVals.push(m.wav);
+      if (Number.isFinite(m?.wpv)) pasVals.push(m.wpv);
+    }
+    const minAct = actVals.length ? Math.min(...actVals) : 0;
+    const maxAct = actVals.length ? Math.max(...actVals) : 0;
+    const minPas = pasVals.length ? Math.min(...pasVals) : 0;
+    const maxPas = pasVals.length ? Math.max(...pasVals) : 0;
+    return { minAct, maxAct, minPas, maxPas };
+  }, [nodes, metricsById]);
+
+  const norm = (v, min, max) =>
+    Number.isFinite(v) && max > min ? ((v - min) / (max - min)) * 100 : v;
+
   const data = useMemo(() => {
     return nodes.map((n, i) => {
       const m = metricsById.get(n.id) || {};
-      const alpha = alphaLabel(i); // A, B, C...
+      const alpha = String.fromCharCode(65 + i); // keep A, B, C… ids
+      const rawX = m.wpv ?? 0;
+      const rawY = m.wav ?? 0;
       return {
         id: alpha,
-        x: m.wpv ?? 0,
-        y: m.wav ?? 0,
+        x: useNormalised ? norm(rawX, ranges.minPas, ranges.maxPas) : rawX,
+        y: useNormalised ? norm(rawY, ranges.minAct, ranges.maxAct) : rawY,
         label: alpha,
       };
     });
-  }, [nodes, metricsById]);
+  }, [nodes, metricsById, useNormalised, ranges]);
   const domains = useMemo(() => {
     if (!data.length)
       return { minX: 0, maxX: 1, minY: 0, maxY: 1, cx: 0.5, cy: 0.5 };
@@ -106,23 +128,39 @@ export default function FactorQuadChart({
   const midX = (domains.minX + domains.maxX) / 2;
   const midY = (domains.minY + domains.maxY) / 2;
 
+  const rangeY = domains.maxY - domains.minY || 1;
+  const topY = domains.maxY - rangeY * 0.02; // slightly inside top
+  const bottomY = domains.minY + rangeY * 0.02; // slightly inside bottom
+  const leftX = domains.minX + (domains.maxX - domains.minX) * 0.25;
+  const rightX = domains.minX + (domains.maxX - domains.minX) * 0.75;
+
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart margin={{ top: 24, right: 24, bottom: 32, left: 48 }}>
+        <ScatterChart margin={{ top: 64, right: 24, bottom: 70, left: 48 }}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
             type="number"
             dataKey="x"
-            name="Raw WPV"
-            label={{ value: "Raw WPV", position: "bottom" }}
+            name={useNormalised ? "Normalised WPV (%)" : "Raw WPV"}
+            label={{
+              value: useNormalised ? "Normalised WPV (%)" : "Raw WPV",
+              position: "bottom",
+              offset: 20,
+            }}
             domain={[domains.minX, domains.maxX]}
           />
           <YAxis
             type="number"
             dataKey="y"
-            name="Raw WAV"
-            label={{ value: "Raw WAV", angle: -90, position: "left" }}
+            name={useNormalised ? "Normalised WAV (%)" : "Raw WAV"}
+            label={{
+              value: useNormalised ? "Normalised WAV (%)" : "Raw WAV",
+              angle: -90,
+              position: "left",
+              offset: 20,
+            }}
+            tickMargin={8}
             domain={[domains.minY, domains.maxY]}
           />
           <Tooltip
@@ -141,8 +179,12 @@ export default function FactorQuadChart({
                     <div>
                       <strong>ID:</strong> {d.id}
                     </div>
-                    <div>Raw WPV: {d.x}</div>
-                    <div>Raw WAV: {d.y}</div>
+                    <div>
+                      {useNormalised ? "Norm WPV" : "Raw WPV"}: {d.x}
+                    </div>
+                    <div>
+                      {useNormalised ? "Norm WAV" : "Raw WAV"}: {d.y}
+                    </div>
                   </div>
                 );
               }
@@ -152,54 +194,65 @@ export default function FactorQuadChart({
 
           <ReferenceLine x={midX} stroke="#2e7d32" strokeWidth={2} />
           <ReferenceLine y={midY} stroke="#2e7d32" strokeWidth={2} />
-
           <ReferenceDot
-            x={(domains.minX + midX) / 2}
-            y={domains.maxY}
+            x={leftX}
+            y={topY}
             r={0}
+            ifOverflow="extendDomain"
             label={{
               value: "Steering factors",
               position: "top",
               fontSize: 16,
               fontWeight: 700,
+              offset: 30,
             }}
           />
           <ReferenceDot
-            x={(midX + domains.maxX) / 2}
-            y={domains.maxY}
+            x={rightX}
+            y={topY}
             r={0}
+            ifOverflow="extendDomain"
             label={{
               value: "Ambivalent factors",
               position: "top",
               fontSize: 16,
               fontWeight: 700,
+              offset: 30,
             }}
           />
           <ReferenceDot
-            x={(domains.minX + midX) / 2}
-            y={domains.minY}
+            x={leftX}
+            y={bottomY}
             r={0}
+            ifOverflow="extendDomain"
             label={{
               value: "Autonomous factors",
               position: "bottom",
               fontSize: 16,
               fontWeight: 700,
+              offset: 30,
             }}
           />
           <ReferenceDot
-            x={(midX + domains.maxX) / 2}
-            y={domains.minY}
+            x={rightX}
+            y={bottomY}
             r={0}
+            ifOverflow="extendDomain"
             label={{
               value: "Measuring factors",
               position: "bottom",
               fontSize: 16,
               fontWeight: 700,
+              offset: 30,
             }}
           />
-
           <Scatter name="Nodes" data={data} fill="#2e7d32">
-            <LabelList dataKey="label" position="right" fontSize={12} />
+            <LabelList
+              dataKey="label"
+              position="right"
+              fontSize={12}
+              offset={6}
+            />
           </Scatter>
         </ScatterChart>
       </ResponsiveContainer>

@@ -63,7 +63,8 @@ export default function App() {
   // Global impact weight — default from first node if present, else 0.5
   const [impactWeight, setImpactWeight] = useState(() => {
     try {
-      const first = (JSON.parse(localStorage.getItem("savedNodes") || "[]") || [])[0];
+      const first = (JSON.parse(localStorage.getItem("savedNodes") || "[]") ||
+        [])[0];
       const w = first?.data?.metrics?.impactWeight;
       const n = Number(w);
       return Number.isFinite(n) ? n : 0.5;
@@ -135,7 +136,10 @@ export default function App() {
 
   return (
     <Router>
-      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div
+        className="pt-30"
+        style={{ display: "flex", flexDirection: "column", height: "100%" }}
+      >
         <Header onImportJson={handleJsonImport} />
 
         <div style={{ flex: 1, minHeight: 0 }}>
