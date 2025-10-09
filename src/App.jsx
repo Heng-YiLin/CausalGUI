@@ -7,6 +7,7 @@ import FactorClassGraph from "./components/FactorClassGraph";
 import PM from "./components/PM";
 import LoopID from "./components/LoopID";
 import Export from "./components/Export";
+import LOI from "./components/LOI";
 
 const sanitizeNodes = (nodes) =>
   (nodes || []).map((node) => ({
@@ -49,6 +50,38 @@ const toNum = (x) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+// Compute pairwise weights W = alpha*Impact + (1-alpha)*Control
+// Returns { alpha, ids, index, matrix, get }
+const computePairwise = (nodes = [], edges = [], alpha = 0.5) => {
+  const ids = nodes.map((n) => n.id);
+  const index = Object.fromEntries(ids.map((id, i) => [id, i]));
+  const n = ids.length;
+  const matrix = Array.from({ length: n }, () => Array(n).fill(0));
+
+  for (const e of edges) {
+    const i = index[e.source];
+    const j = index[e.target];
+    if (i == null || j == null) continue;
+    const I = Number.isFinite(Number(e?.data?.impact))
+      ? Number(e.data.impact)
+      : 0;
+    const C = Number.isFinite(Number(e?.data?.control))
+      ? Number(e.data.control)
+      : 0;
+    const w = alpha * I + (1 - alpha) * C;
+    matrix[i][j] = Math.round(w * 1000) / 1000; // 3 decimals
+  }
+
+  const get = (srcId, tgtId) => {
+    const i = index[srcId];
+    const j = index[tgtId];
+    if (i == null || j == null) return 0;
+    return matrix[i][j];
+  };
+
+  return { alpha, ids, index, matrix, get };
+};
+
 export default function App() {
   const [nodes, setNodes] = useState(() => {
     const raw = JSON.parse(localStorage.getItem("savedNodes") || "[]");
@@ -72,6 +105,12 @@ export default function App() {
       return 0.5;
     }
   });
+
+  // Compute derived pairwise weights (not persisted)
+  const pairwise = useMemo(
+    () => computePairwise(nodes, edges, impactWeight),
+    [nodes, edges, impactWeight]
+  );
 
   // Function to update an edge's data and persist to localStorage
   const updateEdgeData = (edgeId, patch) => {
@@ -164,6 +203,8 @@ export default function App() {
                   edges={edges}
                   setNodes={setNodes}
                   setEdges={setEdges}
+                  impactWeight={impactWeight}
+                  setImpactWeight={setImpactWeight}
                 />
               }
             />
@@ -205,7 +246,20 @@ export default function App() {
                 />
               }
             />
-
+            <Route
+              path="/LOI"
+              element={
+                <LOI
+                  nodes={nodes}
+                  edges={edges}
+                  setNodes={setNodes}
+                  setEdges={setEdges}
+                  impactWeight={impactWeight}
+                  pairwise={pairwise}
+                  
+                />
+              }
+            />
             <Route
               path="/Export"
               element={

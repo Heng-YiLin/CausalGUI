@@ -12,10 +12,33 @@ import { themeBalham } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { parseExcelFile } from "./excelImporter";
 
-export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
+export default function DDMGrid({
+  nodes,
+  edges,
+  setNodes,
+  setEdges,
+  impactWeight,
+  setImpactWeight,
+}) {
   const [rowData, setRowData] = useState([]);
   const [columnDefs, setColumnDefs] = useState([]);
   const gridRef = useRef(null);
+  const gridApiRef = useRef(null);
+  const gridColumnApiRef = useRef(null);
+  // Weight parameter alpha comes from App (impactWeight)
+  const alphaRef = useRef(impactWeight);
+  useEffect(() => {
+    alphaRef.current = impactWeight;
+  }, [impactWeight]);
+
+  useEffect(() => {
+    const api = gridApiRef.current;
+    if (api) {
+      api.refreshCells({ force: true });
+      api.redrawRows();
+    }
+  }, [impactWeight]);
+
   const refreshTotals = (api) => api?.refreshCells({ force: true });
   // Excel Import
   const handleExcelUpload = (event) => {
@@ -36,6 +59,26 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
     if (n === 1) return "#a6f7cdff"; // light
     if (n === 2) return "#5bc483ff"; // mid
     return "#34d399"; // dark (3+)
+  };
+
+  // Pairwise weight from I and C, using explicit alpha
+  const pairwiseW = (i, c, a) => {
+    const I = Number.isFinite(Number(i)) ? Number(i) : 0;
+    const C = Number.isFinite(Number(c)) ? Number(c) : 0;
+    const A = Number.isFinite(Number(a)) ? Number(a) : 0;
+    return A * I + (1 - A) * C;
+  };
+
+  const colorizeW = (p) => {
+    if (p.node?.rowPinned === "bottom") return null;
+    const w = pairwiseW(
+      p.data?.[`${p.colDef._colNodeId}_I`],
+      p.data?.[`${p.colDef._colNodeId}_C`],
+      alphaRef.current
+    );
+    const bg = valueToGreen(w);
+    const color = bg === "#34d399" ? "#063e2b" : "#111827";
+    return { backgroundColor: bg, color, textAlign: "center" };
   };
 
   // shared cellStyle for I/C
@@ -176,6 +219,31 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
             cellStyle: colorizeIC,
             tooltipValueGetter: () =>
               "Click to cycle through values: null → 0 → 1 → 2 → 3",
+          },
+          {
+            headerName: "W",
+            field: `${node.id}_W`,
+            editable: false,
+            volatile: true,
+            _colNodeId: node.id,
+            valueGetter: (p) => {
+              if (p.node?.rowPinned === "bottom") return ""; // no totals for W for now
+              const iVal = p.data ? p.data[`${node.id}_I`] : null;
+              const cVal = p.data ? p.data[`${node.id}_C`] : null;
+              const w = pairwiseW(iVal, cVal, alphaRef.current);
+              return Number.isFinite(w) ? Number(w.toFixed(3)) : "";
+            },
+            valueFormatter: (p) =>
+              p.value === null || p.value === undefined || p.value === ""
+                ? ""
+                : String(p.value),
+            cellStyle: colorizeW,
+            tooltipValueGetter: () => {
+              const a = Number(alphaRef.current ?? 0);
+              return `Pairwise weight W = ${a.toFixed(2)}·I + ${(1 - a).toFixed(
+                2
+              )}·C`;
+            },
           },
         ],
       })),
@@ -339,8 +407,40 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
 
   return (
     <div style={{ padding: 20 }}>
-      <div style={{ marginBottom: 10 }}>
+      <div
+        style={{
+          marginBottom: 10,
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
         <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} />
+        <label
+          style={{
+            fontSize: 13,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          Impact weight (%) [Loops of Interest]
+          <input
+            type="number"
+            min={0}
+            max={1}
+            step={0.01}
+            value={Number(impactWeight).toFixed(2)}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (!Number.isFinite(v)) return;
+              const clamped = Math.min(1, Math.max(0, v));
+              setImpactWeight?.(clamped);
+            }}
+            style={{ width: 88, padding: "4px 6px" }}
+          />
+        </label>
       </div>
       <div style={{ height: `calc(100vh - 150px)`, width: "100%" }}>
         <AgGridReact
@@ -356,6 +456,10 @@ export default function DDMGrid({ nodes, edges, setNodes, setEdges }) {
           stopEditingWhenCellsLoseFocus={true}
           singleClickEdit={false}
           defaultColDef={{ resizable: true, width: 90, editable: true }}
+          onGridReady={(params) => {
+            gridApiRef.current = params.api;
+            gridColumnApiRef.current = params.columnApi;
+          }}
         />
       </div>
     </div>
