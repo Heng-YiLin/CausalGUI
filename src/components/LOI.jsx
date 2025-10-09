@@ -235,6 +235,27 @@ export default function LOI({ rows = DEFAULT_ROWS, nodes = [], edges = [], maxLe
     return copy;
   }, [tableRows, query, sort]);
 
+  // Frequency of each factor across all detected loops (simple cycles)
+  const loopFreq = useMemo(() => {
+    const freqMap = new Map(nodes.map((n) => [n.id, 0]));
+    if (nodes.length && edges.length) {
+      const cycles = findSimpleCycles(nodes, edges, maxLen);
+      for (const ids of cycles) {
+        for (const id of ids) {
+          if (freqMap.has(id)) freqMap.set(id, (freqMap.get(id) || 0) + 1);
+        }
+      }
+    }
+    const rows = Array.from(freqMap.entries()).map(([id, count]) => ({
+      id,
+      label: labelFor(id, nodes),
+      freq: count,
+    }));
+    // Sort by freq desc, then label asc
+    rows.sort((a, b) => (b.freq - a.freq) || a.label.localeCompare(b.label));
+    return rows;
+  }, [nodes, edges, maxLen]);
+
   /** @param {SortKey} key */
   const requestSort = (key) => {
     setSort((prev) => {
@@ -403,6 +424,34 @@ export default function LOI({ rows = DEFAULT_ROWS, nodes = [], edges = [], maxLe
             All available factors have been selected.
           </div>
         )}
+      </div>
+
+      {/* Factor frequency table */}
+      <div style={{ marginTop: 16, padding: 12, border: "1px solid #e5e7eb", borderRadius: 12 }}>
+        <h2 style={{ fontSize: 14, fontWeight: 600, margin: 0, marginBottom: 8 }}>Factor frequency across loops</h2>
+        <div style={{ overflow: "auto", border: "1px solid #f3f4f6", borderRadius: 8 }}>
+          <table style={{ width: "100%", fontSize: 13, borderCollapse: "separate", borderSpacing: 0 }}>
+            <thead>
+              <tr>
+                <th style={styles.th}>Factor</th>
+                <th style={styles.th}>Frequency</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loopFreq.map((r) => (
+                <tr key={r.id}>
+                  <td style={styles.td}>{r.label}</td>
+                  <td style={styles.td}>{r.freq}</td>
+                </tr>
+              ))}
+              {loopFreq.length === 0 && (
+                <tr>
+                  <td colSpan={2} style={{ ...styles.td, textAlign: "center", color: "#6b7280" }}>No factors available.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div style={styles.hint}>
