@@ -115,8 +115,6 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
   const { screenToFlowPosition, fitView } = useReactFlow();
   const [type] = useDnD();
 
-  
-
   const nodeRadius = (id) => 36;
   const runLayout = useCallback(
     (mode = "force") => {
@@ -342,6 +340,7 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
           connectionLineComponent={CustomConnectionLine}
           connectionLineStyle={connectionLineStyle}
         >
+
           <Background />
         </ReactFlow>
       </div>
@@ -350,4 +349,3 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
 };
 
 export default CLD;
-

@@ -1,6 +1,5 @@
 // src/components/Export.jsx
 import React, { useRef } from "react";
-import DownloadButton from "./DownloadButton";
 
 function downloadBlob(data, filename, type = "application/json") {
   const blob = new Blob([data], { type });
@@ -12,26 +11,71 @@ function downloadBlob(data, filename, type = "application/json") {
   URL.revokeObjectURL(url);
 }
 
-export default function Export() {
+/**
+ * Export / Import controls for Nodes & Edges persisted in localStorage.
+ *
+ * Props (all optional):
+ * - setNodes(array): immediately update app state after import
+ * - setEdges(array): immediately update app state after import
+ * - onImported({nodes, edges}): callback after successful import
+ * - storageKeys: { nodesKey: string, edgesKey: string }
+ */
+export default function Export({ setNodes, setEdges, onImported, storageKeys }) {
   const fileInputRef = useRef(null);
+  const nodesKey = storageKeys?.nodesKey || "savedNodes";
+  const edgesKey = storageKeys?.edgesKey || "savedEdges";
 
   const exportJson = () => {
-    const nodes = JSON.parse(localStorage.getItem("savedNodes") || "[]");
-    const edges = JSON.parse(localStorage.getItem("savedEdges") || "[]");
+    const nodes = JSON.parse(localStorage.getItem(nodesKey) || "[]");
+    const edges = JSON.parse(localStorage.getItem(edgesKey) || "[]");
     const payload = { nodes, edges, exportedAt: new Date().toISOString() };
     downloadBlob(JSON.stringify(payload, null, 2), "cld-nodes-edges.json");
+  };
+
+  const emitStorageUpdate = (nodes, edges) => {
+    // Use CustomEvent so the same-tab listeners can react without relying on the native 'storage' event.
+    try {
+      window.dispatchEvent(
+        new CustomEvent("storage-update", { detail: { nodes, edges } })
+      );
+    } catch (_) {
+      // Fallback to a plain Event if CustomEvent is unavailable (older browsers/environments)
+      window.dispatchEvent(new Event("storage-update"));
+    }
   };
 
   const importJson = (file) => {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const data = JSON.parse(reader.result || "{}");
-        const nodes = Array.isArray(data.nodes) ? data.nodes : [];
-        const edges = Array.isArray(data.edges) ? data.edges : [];
-        localStorage.setItem("savedNodes", JSON.stringify(nodes));
-        localStorage.setItem("savedEdges", JSON.stringify(edges));
-        window.dispatchEvent(new Event("storage-update"));
+        const raw = String(reader.result || "{}");
+        const data = JSON.parse(raw);
+        // Accept either {nodes, edges} or {savedNodes, savedEdges}
+        const nodes = Array.isArray(data.nodes)
+          ? data.nodes
+          : Array.isArray(data.savedNodes)
+          ? data.savedNodes
+          : [];
+        const edges = Array.isArray(data.edges)
+          ? data.edges
+          : Array.isArray(data.savedEdges)
+          ? data.savedEdges
+          : [];
+
+        // Persist to localStorage
+        localStorage.setItem(nodesKey, JSON.stringify(nodes));
+        localStorage.setItem(edgesKey, JSON.stringify(edges));
+
+        // Immediately update in-memory React state if setters are provided
+        if (typeof setNodes === "function") setNodes(nodes);
+        if (typeof setEdges === "function") setEdges(edges);
+
+        // Let any listeners know
+        emitStorageUpdate(nodes, edges);
+
+        // Callback for parent/UI
+        if (typeof onImported === "function") onImported({ nodes, edges });
+
         alert("Imported nodes & edges successfully.");
       } catch (e) {
         console.error(e);
@@ -43,7 +87,6 @@ export default function Export() {
 
   return (
     <div style={{ display: "grid", gap: 8 }}>
-
       {/* Export JSON */}
       <button
         onClick={exportJson}
@@ -69,6 +112,7 @@ export default function Export() {
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) importJson(file);
+          // reset input so the same file can be selected again
           e.currentTarget.value = "";
         }}
       />

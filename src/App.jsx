@@ -45,11 +45,6 @@ const persist = (key, value) => {
   }
 };
 
-const toNum = (x) => {
-  const n = Number(x);
-  return Number.isFinite(n) ? n : 0;
-};
-
 // Compute pairwise weights W = alpha*Impact + (1-alpha)*Control
 // Returns { alpha, ids, index, matrix, get }
 const computePairwise = (nodes = [], edges = [], alpha = 0.5) => {
