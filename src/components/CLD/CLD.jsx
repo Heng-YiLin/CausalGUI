@@ -1,5 +1,4 @@
-import React, { useEffect, useCallback, useRef } from "react";
-
+import React, { useEffect, useCallback, useRef, useState } from "react";
 import {
   Background,
   ReactFlow,
@@ -22,173 +21,9 @@ import "@xyflow/react/dist/style.css";
 import CustomNode from "../../nodes/CustomNode";
 import FloatingEdge from "../../edges/FloatingEdge";
 import CustomConnectionLine from "../../edges/CustomConnectionLine";
-import Sidebar from "../Sidebar";
+import Sidebar from "./Sidebar";
 import { useDnD } from "../DnDContext";
-
-import { useStore } from "@xyflow/react";
-
-// --- Loop detection + label overlay ---
-function findSimpleCycles(nodes, edges) {
-  // Build adjacency list keyed by node id
-  const adj = new Map();
-  const outEdges = new Map(); // map: src -> array of edges
-  nodes.forEach((n) => adj.set(n.id, new Set()));
-  edges.forEach((e) => {
-    if (!adj.has(e.source) || !adj.has(e.target)) return;
-    adj.get(e.source).add(e.target);
-    if (!outEdges.has(e.source)) outEdges.set(e.source, []);
-    outEdges.get(e.source).push(e);
-  });
-
-  const cycles = [];
-  const blocked = new Set();
-  const B = new Map();
-  const stack = [];
-  const nodeIds = nodes.map((n) => n.id).sort();
-
-  // Johnson's algorithm (lightweight)
-  function unblock(u) {
-    blocked.delete(u);
-    const set = B.get(u);
-    if (set) {
-      for (const w of Array.from(set)) {
-        B.get(u).delete(w);
-        if (blocked.has(w)) unblock(w);
-      }
-    }
-  }
-
-  function circuit(v, start) {
-    let found = false;
-    stack.push(v);
-    blocked.add(v);
-
-    for (const w of adj.get(v) || []) {
-      if (w === start) {
-        cycles.push([...stack, start]);
-        found = true;
-      } else if (!blocked.has(w)) {
-        if (circuit(w, start)) found = true;
-      }
-    }
-
-    if (found) {
-      unblock(v);
-    } else {
-      for (const w of adj.get(v) || []) {
-        if (!B.has(w)) B.set(w, new Set());
-        B.get(w).add(v);
-      }
-    }
-
-    stack.pop();
-    return found;
-  }
-
-  for (let i = 0; i < nodeIds.length; i++) {
-    const start = nodeIds[i];
-    circuit(start, start);
-    // Remove start from graph
-    for (const s of adj.keys()) {
-      adj.get(s).delete(start);
-    }
-  }
-
-  // Deduplicate by canonical rotation and remove trivial (length<3)
-  const seen = new Set();
-  const unique = [];
-  for (const cyc of cycles) {
-    // cyc ends with start, drop last for canonicalization
-    const path = cyc.slice(0, -1);
-    if (path.length < 3) continue;
-    // rotate so smallest id first, and choose lexicographically smallest rotation
-    const rotations = path.map((_, k) => path.slice(k).concat(path.slice(0, k)));
-    const repr = rotations
-      .map((r) => r.join("->"))
-      .sort()[0];
-    if (!seen.has(repr)) {
-      seen.add(repr);
-      unique.push(path);
-    }
-  }
-
-  // Attach edge info per cycle
-  function edgeLookup(a, b) {
-    const list = outEdges.get(a) || [];
-    return list.find((e) => e.target === b);
-  }
-
-  return unique.map((nodeCycle) => {
-    let neg = 0;
-    for (let i = 0; i < nodeCycle.length; i++) {
-      const a = nodeCycle[i];
-      const b = nodeCycle[(i + 1) % nodeCycle.length];
-      const e = edgeLookup(a, b);
-      const s = e?.data?.sign;
-      if (s === "-") neg++;
-    }
-    const type = neg % 2 === 0 ? "R" : "B"; // even negatives => reinforcing
-
-    // centroid of nodes in flow coords
-    let sx = 0,
-      sy = 0;
-    const pts = nodeCycle
-      .map((id) => nodes.find((n) => n.id === id))
-      .filter(Boolean);
-    pts.forEach((n) => {
-      sx += n.position.x + (n.width || 0) / 2;
-      sy += n.position.y + (n.height || 0) / 2;
-    });
-    const cx = sx / pts.length;
-    const cy = sy / pts.length;
-
-    return { ids: nodeCycle, type, cx, cy };
-  });
-}
-
-function LoopRBLabels({ nodes, edges }) {
-  const [tx, ty, zoom] = useStore((s) => s.transform);
-  const loops = findSimpleCycles(nodes, edges);
-  return (
-    <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-      {loops.map((lp, i) => {
-        const x = tx + lp.cx * zoom;
-        const y = ty + lp.cy * zoom;
-        const bg = lp.type === "R" ? "rgba(22,163,74,0.14)" : "rgba(220,38,38,0.14)";
-        const border = lp.type === "R" ? "2px solid #16a34a" : "2px solid #dc2626";
-        const color = lp.type === "R" ? "#166534" : "#991b1b";
-        return (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              left: x - 12,
-              top: y - 12,
-              width: 24,
-              height: 24,
-              borderRadius: 999,
-              background: bg,
-              border,
-              color,
-              fontWeight: 800,
-              fontSize: 14,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              lineHeight: 1,
-              userSelect: "none",
-              pointerEvents: "none",
-              transform: `translateZ(0)`,
-            }}
-            title={lp.type === "R" ? "Reinforcing loop" : "Balancing loop"}
-          >
-            {lp.type}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+import LoopOverlay from "./LoopOverlay";
 
 const connectionLineStyle = {
   stroke: "#b1b1b7",
@@ -279,6 +114,30 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
   const wrapperRef = useRef(null);
   const { screenToFlowPosition, fitView } = useReactFlow();
   const [type] = useDnD();
+
+  const [showLoops, setShowLoops] = useState(() => {
+    try {
+      const v = localStorage.getItem("cld.showLoops");
+      return v === null ? true : v !== "false";
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    const sync = () => {
+      try {
+        const v = localStorage.getItem("cld.showLoops");
+        setShowLoops(v === null ? true : v !== "false");
+      } catch {}
+    };
+    window.addEventListener("storage", sync);
+    window.addEventListener("storage-update", sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("storage-update", sync);
+    };
+  }, []);
 
   const nodeRadius = (id) => 36;
   const runLayout = useCallback(
@@ -506,7 +365,7 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
           connectionLineStyle={connectionLineStyle}
           deleteKeyCode={["Backspace", "Delete"]}
         >
-          <LoopRBLabels nodes={nodes} edges={edges} />
+          {showLoops && <LoopOverlay nodes={nodes} edges={edges} />}
           <Background />
         </ReactFlow>
       </div>
