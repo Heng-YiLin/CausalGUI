@@ -339,6 +339,7 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
           defaultEdgeOptions={defaultEdgeOptions}
           connectionLineComponent={CustomConnectionLine}
           connectionLineStyle={connectionLineStyle}
+          deleteKeyCode={["Backspace", "Delete"]}
         >
 
           <Background />

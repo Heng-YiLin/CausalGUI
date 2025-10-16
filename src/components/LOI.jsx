@@ -515,6 +515,7 @@ export default function LOI({
     },
     table: {
       width: "100%",
+      
       fontSize: 13,
       borderCollapse: "separate",
       borderSpacing: 0,
@@ -525,9 +526,11 @@ export default function LOI({
       background: "rgba(255,255,255,0.92)",
       backdropFilter: "saturate(180%) blur(4px)",
       textAlign: "left",
-      padding: "10px 12px",
+      padding: "8px 10px",
       borderBottom: "1px solid #e5e7eb",
-      whiteSpace: "nowrap",
+      whiteSpace: "normal",
+      wordBreak: "break-word",
+      overflowWrap: "anywhere",
     },
     thClickable: { cursor: "pointer", textDecoration: "none" },
     td: {
@@ -541,7 +544,8 @@ export default function LOI({
       fontSize: 12,
       lineHeight: 1.35,
       whiteSpace: "pre-wrap",
-      minWidth: 640,
+      wordBreak: "break-word",
+      overflowWrap: "anywhere",
     },
     button: {
       border: "1px solid #e5e7eb",
@@ -573,7 +577,6 @@ export default function LOI({
   return (
     <div style={styles.container}>
       <div style={styles.headerRow}>
-        <h1 style={styles.title}>Phase 1 – Loop Metrics</h1>
         <div
           style={{
             display: "flex",
@@ -676,31 +679,34 @@ export default function LOI({
         >
           <thead>
             <tr>
-              <Th label="Loop" />
-              <Th label="Loop length" />
-              <Th label="Raw loop composite value" />
-              <Th label="Adjusted Loop Composite Value (aLCVl)" />
-              <Th label="Normalised loop composite value (nLCVl)" />
-              <Th label="Steering factor count" />
-              <Th label="Normalised steering factors (nSFCl)" />
-              <Th label="Total overlap Value" />
-              <Th label="Normalised independent loop value" />
-              <Th label="Adjusted independent loop value" />
-              <Th label="Normalised adjusted independent loop value" />
+              <Th label="Loop" minWidth={120} />
+              <Th label="Loop length" minWidth={70} />
+              <Th label="Raw loop composite value" minWidth={100} />
+              <Th label="Adjusted Loop Composite Value (aLCVl)" minWidth={100} />
+              <Th label="Normalised loop composite value (nLCVl)" minWidth={100} />
+              <Th label="Steering factor count" minWidth={100} />
+              <Th label="Normalised steering factors (nSFCl)" minWidth={100} />
+              <Th label="Total overlap Value" minWidth={100} />
+              <Th label="Normalised independent loop value" minWidth={120} />
+              <Th label="Adjusted independent loop value" minWidth={120} />
+              <Th label="Normalised adjusted independent loop value" minWidth={120} />
               <Th
                 label="Conditional Independence Value (CIV)"
                 icon={sortIcon("CIV")}
                 onClick={() => requestSort("CIV")}
+                minWidth={140}
               />
               <Th
                 label="Weighted loop value"
                 icon={sortIcon("weightedLoopValue")}
                 onClick={() => requestSort("weightedLoopValue")}
+                minWidth={120}
               />
               <Th
                 label="Normalised weighted loop value (nWLV)"
                 icon={sortIcon("nWLV")}
                 onClick={() => requestSort("nWLV")}
+                minWidth={120}
               />
               <th style={styles.th}></th>
             </tr>
@@ -725,7 +731,9 @@ export default function LOI({
                 </td>
                 <td style={styles.td}>{fmt(r.CIV)}</td>
                 <td style={styles.td}>{fmt(r.weightedLoopValue)}</td>
-                <td style={{ ...styles.td, ...greenBoxStyle(r.nWLV) }}>{fmt(r.nWLV)}</td>
+                <td style={{ ...styles.td, ...greenBoxStyle(r.nWLV) }}>
+                  {fmt(r.nWLV)}
+                </td>
               </tr>
             ))}
             {filtered.length === 0 && (

@@ -70,7 +70,21 @@ export default function DDMGrid({
   };
 
   const colorizeW = (p) => {
+    // Don't color pinned-bottom totals
     if (p.node?.rowPinned === "bottom") return null;
+
+    // Grey-out diagonal (same source & target node)
+    const colNodeId = p.colDef?._colNodeId;
+    if (p.data && p.data._rowNodeId === colNodeId) {
+      return {
+        backgroundColor: "#888888ff",
+        color: "#3b3b3bff",
+        pointerEvents: "none",
+        textAlign: "center",
+      };
+    }
+
+    // Otherwise color by pairwise weight
     const w = pairwiseW(
       p.data?.[`${p.colDef._colNodeId}_I`],
       p.data?.[`${p.colDef._colNodeId}_C`],
@@ -228,6 +242,10 @@ export default function DDMGrid({
             _colNodeId: node.id,
             valueGetter: (p) => {
               if (p.node?.rowPinned === "bottom") return ""; // no totals for W for now
+
+              // Blank out diagonal (same-node pair)
+              if (p.data?._rowNodeId === node.id) return "";
+
               const iVal = p.data ? p.data[`${node.id}_I`] : null;
               const cVal = p.data ? p.data[`${node.id}_C`] : null;
               const w = pairwiseW(iVal, cVal, alphaRef.current);
@@ -238,11 +256,12 @@ export default function DDMGrid({
                 ? ""
                 : String(p.value),
             cellStyle: colorizeW,
-            tooltipValueGetter: () => {
+            tooltipValueGetter: (p) => {
+              if (p.data?._rowNodeId === node.id && !p.node?.rowPinned) {
+                return "No pairwise weight on the diagonal (same node).";
+              }
               const a = Number(alphaRef.current ?? 0);
-              return `Pairwise weight W = ${a.toFixed(2)}·I + ${(1 - a).toFixed(
-                2
-              )}·C`;
+              return `Pairwise weight W = ${a.toFixed(2)}·I + ${(1 - a).toFixed(2)}·C`;
             },
           },
         ],
@@ -309,7 +328,7 @@ export default function DDMGrid({
       });
       return row;
     });
-    rows.push({ rowLabel: "" });
+    // rows.push({ rowLabel: "" }); // Removed: do not add an empty row after all nodes
     setColumnDefs(columns);
     setRowData(rows);
   };
@@ -416,7 +435,7 @@ export default function DDMGrid({
           flexWrap: "wrap",
         }}
       >
-        <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} />
+        {/* <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} /> */}
         <label
           style={{
             fontSize: 13,
