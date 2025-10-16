@@ -293,7 +293,7 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
           {
             ...params,
             type: "floating",
-            data: { label: "", impact: 0, control: 0 },
+            data: { label: "", impact: 1, control: 0 },
           },
           eds
         );

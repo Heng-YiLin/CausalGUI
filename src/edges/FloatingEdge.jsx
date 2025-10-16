@@ -45,13 +45,18 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   }
 
   const handleImpactClick = () => {
-    setEdges((eds) =>
-      eds.map((e) =>
-        e.id === id
-          ? { ...e, data: { ...e.data, impact: nextImpact(e.data?.impact) } }
-          : e
-      )
-    );
+    setEdges((eds) => {
+      const cur = eds.find((e) => e.id === id);
+      const currentVal = cur?.data?.impact ?? null;
+      const nextVal = nextImpact(currentVal);
+      if (nextVal === null) {
+        // If impact cycles to null, delete the edge entirely
+        return eds.filter((e) => e.id !== id);
+      }
+      return eds.map((e) =>
+        e.id === id ? { ...e, data: { ...e.data, impact: nextVal } } : e
+      );
+    });
   };
 
   const handleControlClick = () => {

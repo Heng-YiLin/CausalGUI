@@ -229,14 +229,14 @@ export default function FactorClassGraph({
         field: "rawWeightedActiveValue",
         flex: 1,
         minWidth: 220,
-        valueFormatter: (p) => (p.value == null ? "—" : p.value),
+        valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(3)),
       },
       {
         headerName: "Raw Weighted Passive Value",
         field: "rawWeightedPassiveValue",
         flex: 1,
         minWidth: 220,
-        valueFormatter: (p) => (p.value == null ? "—" : p.value),
+        valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(3)),
       },
       {
         headerName: "Normalised Weighted Active Value",
@@ -307,7 +307,13 @@ export default function FactorClassGraph({
                 );
                 onChangeImpactWeight(clamped);
               }}
-              style={{ width: 88, minWidth: 88, flexShrink: 0, borderWidth: 1 ,borderRadius:5}}
+              style={{
+                width: 72,
+                marginLeft: 6,
+                padding: "4px 6px",
+                border: "1px solid #d1d5db",
+                borderRadius: 6,
+              }}
             />
           </label>
         </div>
