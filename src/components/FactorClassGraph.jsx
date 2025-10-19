@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import FactorQuadChart from "./Graphs/FactorQuadChart";
 
@@ -11,8 +11,6 @@ import { themeBalham } from "ag-grid-community";
  *
  * Props:
  *  - nodes: array of nodes
- *  - impactWeight: number in [0,1] (global)
- *  - onChangeImpactWeight: (next:number) => void
  *
  * Renders:
  *  1) Alphabet label A..Z, AA.. etc
@@ -25,9 +23,9 @@ import { themeBalham } from "ag-grid-community";
 export default function FactorClassGraph({
   nodes: propNodes = [],
   edges: propEdges = [],
-  impactWeight = 0.5,
-  onChangeImpactWeight = () => {},
 }) {
+  const [impactWeight, setImpactWeight] = useState(0.2);
+
   // A -> Z, AA, AB, ...
   const alphaLabel = (index) => {
     let n = index + 1;
@@ -229,21 +227,21 @@ export default function FactorClassGraph({
         field: "rawWeightedActiveValue",
         flex: 1,
         minWidth: 220,
-        valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(3)),
+        valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(1)),
       },
       {
         headerName: "Raw Weighted Passive Value",
         field: "rawWeightedPassiveValue",
         flex: 1,
         minWidth: 220,
-        valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(3)),
+        valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(1)),
       },
       {
         headerName: "Normalised Weighted Active Value",
         field: "normalisedWeightedActiveValue",
         flex: 1,
         minWidth: 260,
-        valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(3)),
+        valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(1)),
         cellStyle: (p) => {
           const v = p.value;
           if (v == null) return null;
@@ -256,7 +254,7 @@ export default function FactorClassGraph({
         field: "normalisedWeightedPassiveValue",
         flex: 1,
         minWidth: 260,
-        valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(3)),
+        valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(1)),
         cellStyle: (p) => {
           const v = p.value;
           if (v == null) return null;
@@ -281,9 +279,6 @@ export default function FactorClassGraph({
     <div style={{ width: "100%", height: "100%" }}>
       <div style={{ marginBottom: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <p style={{ margin: 0 }}>
-            <strong>Factor Class – Phase 1 (QSEM)</strong>
-          </p>
           <label
             style={{
               display: "inline-flex",
@@ -292,10 +287,10 @@ export default function FactorClassGraph({
               fontSize: 18,
             }}
           >
-            <strong>Impact weight</strong>
+            <strong>Impact weight [System Factor Classification]</strong>
             <input
               type="number"
-              step="0.01"
+              step="0.1"
               min={0}
               max={1}
               value={impactWeight}
@@ -305,7 +300,7 @@ export default function FactorClassGraph({
                   0,
                   Math.min(1, Number.isFinite(next) ? next : 0)
                 );
-                onChangeImpactWeight(clamped);
+                setImpactWeight(clamped);
               }}
               style={{
                 width: 72,
