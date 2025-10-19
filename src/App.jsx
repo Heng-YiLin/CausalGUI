@@ -129,19 +129,6 @@ export default function App() {
     persist("savedEdges", edges);
   }, [nodes, edges]);
 
-  // Light validation logs
-  useEffect(() => {
-    for (const n of nodes) {
-      if (!n?.data || typeof n.data.label !== "string") {
-        console.warn("⚠️ Invalid node label", n);
-      }
-    }
-    for (const e of edges) {
-      if (!e?.data || typeof e.data.label !== "string") {
-        console.warn("⚠️ Invalid edge label", e);
-      }
-    }
-  }, [nodes, edges]);
 
   const handleJsonImport = (event) => {
     const file = event.target.files[0];
