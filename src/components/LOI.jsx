@@ -100,7 +100,7 @@ function buildRowsFromGraph(
   firstOrderIds = [],
   freqMap = null,
   useAdjustedIndependence = false,
-  coeffLCV = 1,
+  composite = 1,
   coeffSFC = 1,
   coeffCIV = 1
 ) {
@@ -226,14 +226,14 @@ function buildRowsFromGraph(
     r.CIV = Number.isFinite(civSource) ? civSource : null;
   }
 
-  // Compute weighted loop value: ((nLCVl*coeffLCV) + (nSFC*coeffSFC) + (CIV*coeffCIV)) * 100
+  // Compute weighted loop value: ((nLCVl*composite) + (nSFC*coeffSFC) + (CIV*coeffCIV)) * 100
   for (const r of rows) {
     const nLCV = Number.isFinite(r.nLCVl) ? r.nLCVl : 0;
     const nS = Number.isFinite(r.nSFC) ? r.nSFC : 0;
     const civ = Number.isFinite(r.CIV) ? r.CIV : 0;
     r.weightedLoopValue =
       Math.round(
-        (nLCV * coeffLCV + nS * coeffSFC + civ * coeffCIV) * 100 * 1000
+        (nLCV * composite + nS * coeffSFC + civ * coeffCIV) * 100 * 1000
       ) / 1000;
   }
 
@@ -265,7 +265,7 @@ const DEFAULT_ROWS = [
     stella:
       'capacity_of_local_processing_infrastructure ->(+) "clean/sustainable_processing_alternatives" ->(-) environmental_impact ->(-) land_availability ->(-) diversification_of_farming_practices ->(+) primary_food_processing ->(+) "food_production_(productivity_factor)" ->(+) "units_of_food_produced_in_Wales_(volume)" ->(+) food_distribution ->(+) food_available ->(+) consumer_demand ->(+) JIT_processing',
     loopLength: 12,
-    nLCVl: 1.0,
+    composite: 1.0,
     SFC: 2,
     nSFC: 0.67,
     CIV: 0.26,
@@ -274,7 +274,7 @@ const DEFAULT_ROWS = [
     stella:
       '"by-products_and_food_waste" ->(+) environmental_impact ->(-) land_availability ->(-) diversification_of_farming_practices ->(+) primary_food_processing ->(+) "food_production_(productivity_factor)" ->(+) "units_of_food_produced_in_Wales_(volume)" ->(+) food_distribution ->(+) food_available ->(+) consumer_demand ->(+) JIT_processing',
     loopLength: 11,
-    nLCVl: 0.99,
+    composite: 0.99,
     SFC: 2,
     nSFC: 0.67,
     CIV: 0.3,
@@ -316,6 +316,9 @@ export default function LOI({
   });
   const [query, setQuery] = useState("");
 
+  // Toggle to show only key columns (minimal view is default)
+  const [minimalView, setMinimalView] = useState(true);
+
   // Toggle for Conditional Independence Value selection (persisted)
   const [useAdjustedIndependence, setUseAdjustedIndependence] = useState(() => {
     const saved = localStorage.getItem("loi_useAdjustedIndependence");
@@ -328,9 +331,10 @@ export default function LOI({
       String(useAdjustedIndependence)
     );
   }, [useAdjustedIndependence]);
-  // Coefficients for Weighted loop value (persisted)
-  const [coeffLCV, setCoeffLCV] = useState(() => {
-    const v = localStorage.getItem("loi_coeff_lcv");
+
+  // Coefficients for Weighted loop value (persisted localstorage)
+  const [composite, setComposite] = useState(() => {
+    const v = localStorage.getItem("loi_coeff_composite");
     return v !== null ? Number(v) : 1;
   });
   const [coeffSFC, setCoeffSFC] = useState(() => {
@@ -341,9 +345,40 @@ export default function LOI({
     const v = localStorage.getItem("loi_coeff_civ");
     return v !== null ? Number(v) : 1;
   });
+
+  // Read-only coefficient mirrored from DDM's impactWeight (persisted by DDM under 'ddmImpactWeight')
+  const [ddmImpactWeight, setDdmImpactWeight] = useState(() => {
+    const v = localStorage.getItem("ddmImpactWeight");
+    return v !== null ? Number(v) : 0.5;
+  });
+
+  // Keep it in sync if updated elsewhere (e.g., in DDM)
   useEffect(() => {
-    localStorage.setItem("loi_coeff_lcv", String(coeffLCV));
-  }, [coeffLCV]);
+    const handler = (e) => {
+      if (e.key === "ddmImpactWeight") {
+        const v = e.newValue !== null ? Number(e.newValue) : null;
+        if (v !== null && Number.isFinite(v)) setDdmImpactWeight(v);
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
+
+  // Also refresh on focus (covers same-tab changes if DDM lives in same SPA route)
+  useEffect(() => {
+    const onFocus = () => {
+      const v = localStorage.getItem("ddmImpactWeight");
+      if (v !== null) {
+        const num = Number(v);
+        if (Number.isFinite(num)) setDdmImpactWeight(num);
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+  useEffect(() => {
+    localStorage.setItem("loi_coeff_composite", String(composite));
+  }, [composite]);
   useEffect(() => {
     localStorage.setItem("loi_coeff_sfc", String(coeffSFC));
   }, [coeffSFC]);
@@ -351,8 +386,30 @@ export default function LOI({
     localStorage.setItem("loi_coeff_civ", String(coeffCIV));
   }, [coeffCIV]);
 
-  // 1st order factor selection (local to LOI)
-  const [firstOrder, setFirstOrder] = useState([]); // array of node ids
+  // 1st order factor selection (persisted)
+  const [firstOrder, setFirstOrder] = useState(() => {
+    try {
+      const raw = localStorage.getItem("loi_firstOrder");
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) {
+      return [];
+    }
+  });
+
+  // Persist selection whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("loi_firstOrder", JSON.stringify(firstOrder));
+    } catch (_) {}
+  }, [firstOrder]);
+
+  // Ensure stored ids are valid for the current graph
+  useEffect(() => {
+    if (!nodes?.length) return;
+    const valid = new Set(nodes.map((n) => n.id));
+    setFirstOrder((prev) => prev.filter((id) => valid.has(id)));
+  }, [nodes]);
 
   // Build selectable options from current nodes
   const nodeOptions = useMemo(() => {
@@ -419,7 +476,7 @@ export default function LOI({
         firstOrder,
         freqMap,
         useAdjustedIndependence,
-        coeffLCV,
+        composite,
         coeffSFC,
         coeffCIV
       ),
@@ -431,7 +488,8 @@ export default function LOI({
       firstOrder,
       freqMap,
       useAdjustedIndependence,
-      coeffLCV,
+      composite,
+
       coeffSFC,
       coeffCIV,
     ]
@@ -515,7 +573,7 @@ export default function LOI({
     },
     table: {
       width: "100%",
-      
+
       fontSize: 13,
       borderCollapse: "separate",
       borderSpacing: 0,
@@ -557,12 +615,13 @@ export default function LOI({
     hint: { color: "#6b7280", fontSize: 12 },
   };
 
-  const Th = ({ label, icon, onClick, minWidth }) => (
+  const Th = ({ label, icon, onClick, minWidth, width }) => (
     <th
       style={{
         ...styles.th,
         ...(onClick ? styles.thClickable : {}),
         ...(minWidth ? { minWidth } : {}),
+        ...(width ? { width } : {}),
       }}
       onClick={onClick}
       title={onClick ? `Sort by ${label}` : undefined}
@@ -585,24 +644,6 @@ export default function LOI({
             flexWrap: "wrap",
           }}
         >
-          <label style={{ fontSize: 13 }}>
-            Conditional Independence Toggle:
-            <select
-              value={useAdjustedIndependence ? "Yes" : "No"}
-              onChange={(e) =>
-                setUseAdjustedIndependence(e.target.value === "Yes")
-              }
-              style={{
-                marginLeft: 8,
-                padding: "4px 6px",
-                border: "1px solid #d1d5db",
-                borderRadius: 6,
-              }}
-            >
-              <option>No</option>
-              <option>Yes</option>
-            </select>
-          </label>
           <div
             style={{
               display: "flex",
@@ -613,12 +654,12 @@ export default function LOI({
           >
             <span style={{ fontSize: 13 }}>Coefficients:</span>
             <label style={{ fontSize: 12 }}>
-              nLCVl
+              Composite(%)
               <input
                 type="number"
                 step={0.01}
-                value={coeffLCV}
-                onChange={(e) => setCoeffLCV(Number(e.target.value) || 0)}
+                value={composite}
+                onChange={(e) => setComposite(Number(e.target.value) || 0)}
                 style={{
                   width: 72,
                   marginLeft: 6,
@@ -629,7 +670,7 @@ export default function LOI({
               />
             </label>
             <label style={{ fontSize: 12 }}>
-              nSFCl
+              Steering(%)
               <input
                 type="number"
                 step={0.01}
@@ -645,7 +686,7 @@ export default function LOI({
               />
             </label>
             <label style={{ fontSize: 12 }}>
-              CIV
+              Independence (%)
               <input
                 type="number"
                 step={0.01}
@@ -660,6 +701,42 @@ export default function LOI({
                 }}
               />
             </label>
+            {/* DDM Impact Weight (editable; persists to localStorage for DDM to read) */}
+
+            <label style={{ fontSize: 13 }}>
+              Longest Loop Independence:
+              <select
+                value={useAdjustedIndependence ? "Yes" : "No"}
+                onChange={(e) =>
+                  setUseAdjustedIndependence(e.target.value === "Yes")
+                }
+                style={{
+                  marginLeft: 8,
+                  padding: "4px 6px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 6,
+                }}
+              >
+                <option>No</option>
+                <option>Yes</option>
+              </select>
+            </label>
+            <label style={{ fontSize: 12 }} title="Impact Weight (%)">
+              Impact Weight (%)
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: "4px 6px",
+                  borderRadius: 6,
+                  color: "#111827",
+                  textAlign: "right",
+                }}
+              >
+                {Number.isFinite(ddmImpactWeight)
+                  ? ddmImpactWeight.toFixed(2)
+                  : ""}
+              </span>
+            </label>
           </div>
           <input
             value={query}
@@ -667,91 +744,196 @@ export default function LOI({
             placeholder="Search loops"
             style={styles.search}
           />
+          <label
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={!minimalView}
+              onChange={(e) => setMinimalView(!e.target.checked)}
+            />
+            Show all columns
+          </label>
         </div>
       </div>
 
       <div style={styles.tableWrap}>
-        <table
-          style={styles.table}
-          key={`${
-            useAdjustedIndependence ? "civ-adjusted" : "civ-normal"
-          }-${coeffLCV}-${coeffSFC}-${coeffCIV}`}
-        >
-          <thead>
-            <tr>
-              <Th label="Loop" minWidth={120} />
-              <Th label="Loop length" minWidth={70} />
-              <Th label="Raw loop composite value" minWidth={100} />
-              <Th label="Adjusted Loop Composite Value (aLCVl)" minWidth={100} />
-              <Th label="Normalised loop composite value (nLCVl)" minWidth={100} />
-              <Th label="Steering factor count" minWidth={100} />
-              <Th label="Normalised steering factors (nSFCl)" minWidth={100} />
-              <Th label="Total overlap Value" minWidth={100} />
-              <Th label="Normalised independent loop value" minWidth={120} />
-              <Th label="Adjusted independent loop value" minWidth={120} />
-              <Th label="Normalised adjusted independent loop value" minWidth={120} />
-              <Th
-                label="Conditional Independence Value (CIV)"
-                icon={sortIcon("CIV")}
-                onClick={() => requestSort("CIV")}
-                minWidth={140}
-              />
-              <Th
-                label="Weighted loop value"
-                icon={sortIcon("weightedLoopValue")}
-                onClick={() => requestSort("weightedLoopValue")}
-                minWidth={120}
-              />
-              <Th
-                label="Normalised weighted loop value (nWLV)"
-                icon={sortIcon("nWLV")}
-                onClick={() => requestSort("nWLV")}
-                minWidth={120}
-              />
-              <th style={styles.th}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((r, i) => (
-              <tr key={i}>
-                <td style={{ ...styles.td, ...styles.mono }}>{r.stella}</td>
-                <td style={styles.td}>{fmt(r.loopLength)}</td>
-                <td style={styles.td}>{fmt(r.rawLoopCompositeValue)}</td>
-                <td style={styles.td}>{fmt(r.aLCVl)}</td>
-                <td style={styles.td}>{fmt(r.nLCVl)}</td>
-                <td style={styles.td}>{fmt(r.SFC)}</td>
-                <td style={styles.td}>{fmt(r.nSFC)}</td>
-                <td style={styles.td}>{fmt(r.totalOverlap)}</td>
-                <td style={styles.td}>
-                  {fmt(r.normalisedIndependentLoopValue)}
-                </td>
-                <td style={styles.td}>{fmt(r.adjustedIndependentLoopValue)}</td>
-                <td style={styles.td}>
-                  {fmt(r.normalisedAdjustedIndependentLoopValue)}
-                </td>
-                <td style={styles.td}>{fmt(r.CIV)}</td>
-                <td style={styles.td}>{fmt(r.weightedLoopValue)}</td>
-                <td style={{ ...styles.td, ...greenBoxStyle(r.nWLV) }}>
-                  {fmt(r.nWLV)}
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
+        {minimalView ? (
+          <table
+            style={styles.table}
+            key={`${
+              useAdjustedIndependence ? "civ-adjusted" : "civ-normal"
+            }-${composite}-${coeffSFC}-${coeffCIV}-minimal`}
+          >
+            <thead>
               <tr>
-                <td
-                  colSpan={7}
-                  style={{
-                    ...styles.td,
-                    textAlign: "center",
-                    color: "#6b7280",
-                  }}
-                >
-                  No rows match your search.
-                </td>
+                <Th label="Loop" />
+                <Th label="Loop length" minWidth={70} width={70} />
+                <Th
+                  label="Normalised loop composite value (nLCVl)"
+                  minWidth={120}
+                  width={120}
+                />
+                <Th
+                  label="Normalised steering factors (nSFCl)"
+                  minWidth={120}
+                  width={120}
+                />
+                <Th
+                  label="Conditional Independence Value (CIV)"
+                  icon={sortIcon("CIV")}
+                  onClick={() => requestSort("CIV")}
+                  minWidth={140}
+                  width={140}
+                />
+                <Th
+                  label="Normalised weighted loop value (nWLV)"
+                  icon={sortIcon("nWLV")}
+                  onClick={() => requestSort("nWLV")}
+                  minWidth={120}
+                  width={120}
+                />
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((r, i) => (
+                <tr key={i}>
+                  <td style={{ ...styles.td, ...styles.mono }}>{r.stella}</td>
+                  <td style={{ ...styles.td, width: 50 }}>
+                    {fmt(r.loopLength)}
+                  </td>
+                  <td style={{ ...styles.td, width: 80 }}>{fmt(r.nLCVl)}</td>
+                  <td style={{ ...styles.td, width: 80 }}>{fmt(r.nSFC)}</td>
+                  <td style={{ ...styles.td, width: 90 }}>{fmt(r.CIV)}</td>
+                  <td
+                    style={{
+                      ...styles.td,
+                      width: 90,
+                      ...greenBoxStyle(r.nWLV),
+                    }}
+                  >
+                    {fmt(r.nWLV)}
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={6}
+                    style={{
+                      ...styles.td,
+                      textAlign: "center",
+                      color: "#6b7280",
+                    }}
+                  >
+                    No rows match your search.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        ) : (
+          <table
+            style={styles.table}
+            key={`${
+              useAdjustedIndependence ? "civ-adjusted" : "civ-normal"
+            }-${composite}-${coeffSFC}-${coeffCIV}`}
+          >
+            <thead>
+              <tr>
+                <Th label="Loop" minWidth={280} />
+                <Th label="Loop length" minWidth={70} />
+                <Th label="Raw loop composite value" minWidth={100} />
+                <Th
+                  label="Adjusted Loop Composite Value (aLCVl)"
+                  minWidth={100}
+                />
+                <Th
+                  label="Normalised loop composite value (nLCVl)"
+                  minWidth={80}
+                />
+                <Th label="Steering factor count" minWidth={100} />
+                <Th label="Normalised steering factors (nSFCl)" minWidth={80} />
+                <Th label="Total overlap Value" minWidth={100} />
+                <Th label="Normalised independent loop value" minWidth={120} />
+                <Th label="Adjusted independent loop value" minWidth={120} />
+                <Th
+                  label="Normalised adjusted independent loop value"
+                  minWidth={120}
+                />
+                <Th
+                  label="Conditional Independence Value (CIV)"
+                  icon={sortIcon("CIV")}
+                  onClick={() => requestSort("CIV")}
+                  minWidth={140}
+                  width={140}
+                />
+                <Th
+                  label="Weighted loop value"
+                  icon={sortIcon("weightedLoopValue")}
+                  onClick={() => requestSort("weightedLoopValue")}
+                  minWidth={120}
+                  width={120}
+                />
+                <Th
+                  label="Normalised weighted loop value (nWLV)"
+                  icon={sortIcon("nWLV")}
+                  onClick={() => requestSort("nWLV")}
+                  minWidth={120}
+                  width={120}
+                />
+                <th style={styles.th}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r, i) => (
+                <tr key={i}>
+                  <td style={{ ...styles.td, ...styles.mono }}>{r.stella}</td>
+                  <td style={styles.td}>{fmt(r.loopLength)}</td>
+                  <td style={styles.td}>{fmt(r.rawLoopCompositeValue)}</td>
+                  <td style={styles.td}>{fmt(r.aLCVl)}</td>
+                  <td style={styles.td}>{fmt(r.nLCVl)}</td>
+                  <td style={styles.td}>{fmt(r.SFC)}</td>
+                  <td style={styles.td}>{fmt(r.nSFC)}</td>
+                  <td style={styles.td}>{fmt(r.totalOverlap)}</td>
+                  <td style={styles.td}>
+                    {fmt(r.normalisedIndependentLoopValue)}
+                  </td>
+                  <td style={styles.td}>
+                    {fmt(r.adjustedIndependentLoopValue)}
+                  </td>
+                  <td style={styles.td}>
+                    {fmt(r.normalisedAdjustedIndependentLoopValue)}
+                  </td>
+                  <td style={styles.td}>{fmt(r.CIV)}</td>
+                  <td style={styles.td}>{fmt(r.weightedLoopValue)}</td>
+                  <td style={{ ...styles.td, ...greenBoxStyle(r.nWLV) }}>
+                    {fmt(r.nWLV)}
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={7}
+                    style={{
+                      ...styles.td,
+                      textAlign: "center",
+                      color: "#6b7280",
+                    }}
+                  >
+                    No rows match your search.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* 1st order factor selection */}

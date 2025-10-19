@@ -84,14 +84,15 @@ export default function DDMGrid({
     } catch (_) {}
   }, []);
 
-  // Persist impact weight whenever it changes
-  useEffect(() => {
-    try {
-      if (Number.isFinite(Number(impactWeight))) {
-        localStorage.setItem("ddmImpactWeight", String(impactWeight));
-      }
-    } catch (_) {}
-  }, [impactWeight]);
+  
+// Persist impact weight whenever it changes + broadcast for same-tab listeners
+useEffect(() => {
+  try {
+    if (Number.isFinite(Number(impactWeight))) {
+      localStorage.setItem("ddmImpactWeight", String(impactWeight));
+    }
+  } catch (_) {}
+}, [impactWeight]);
 
   const refreshTotals = (api) => api?.refreshCells({ force: true });
   // Excel Import
