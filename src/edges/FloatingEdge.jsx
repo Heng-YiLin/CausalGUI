@@ -15,6 +15,7 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
   const pathRef = useRef(null);
   const [labelPos, setLabelPos] = useState({ x: 0, y: 0 });
   const [editing, setEditing] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const labelRef = useRef(null);
   const handleRef = useRef(null);
   const ignoreNextOutside = useRef(false);
@@ -183,15 +184,28 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
         pointerEvents="stroke"
         className="react-flow__edge-interaction"
       />
+      <defs>
+        <marker
+          id={`arrow-${id}`}
+          markerWidth="10"
+          markerHeight="10"
+          refX="10"
+          refY="5"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <path d="M0,0 L10,5 L0,10 z" fill={"#b1b1b7"} />
+        </marker>
+      </defs>
       <path
         ref={pathRef}
         id={id}
         className="react-flow__edge-path"
         d={edgePath}
-        markerEnd={markerEnd}
+        markerEnd={`url(#arrow-${id})`}
         style={style}
-        strokeWidth={2}
-        stroke={strokeColor} // <— here
+        strokeWidth={2.5}
+        stroke={strokeColor}
         fill="none"
         cursor="pointer"
         onClick={handleEdgeClick}
@@ -408,29 +422,34 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
         <circle
           className="nodrag nopan"
           ref={handleRef}
-          cx={labelPos.x - 60} // 10px left of the label box (label width is ~100)
-          cy={labelPos.y - 5} // same vertical center
-          r={7}
+          cx={labelPos.x - 60}
+          cy={labelPos.y - 5}
+          r={9}
           fill="#fff"
           stroke="#333"
           strokeWidth={1.5}
-          onClick={(e) => e.stopPropagation()}
-          onPointerUp={(e) => e.stopPropagation()}
-          style={{ cursor: "grab", pointerEvents: "all", touchAction: "none" }}
+          title="Drag to bend this edge"
+          style={{ cursor: dragging ? "grabbing" : "grab", pointerEvents: "all", touchAction: "none" }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onPointerDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
             ignoreNextOutside.current = true;
+            isDragging.current = true;
+            setDragging(true);
             try {
               e.currentTarget.setPointerCapture(e.pointerId);
             } catch {}
+
             const startX = e.clientX;
             const startY = e.clientY;
             const startOffset = offset;
+            let moved = false;
 
             const onMove = (moveEvent) => {
               const dx = moveEvent.clientX - startX;
               const dy = moveEvent.clientY - startY;
+              if (!moved && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) moved = true;
               onOffsetPointerDrag(startOffset, dx, dy);
             };
 
@@ -439,12 +458,36 @@ function FloatingEdge({ id, source, target, markerEnd, style, data }) {
                 e.currentTarget.releasePointerCapture(e.pointerId);
               } catch {}
               isDragging.current = false;
+              setDragging(false);
               window.removeEventListener("pointermove", onMove);
               window.removeEventListener("pointerup", onUp);
+              window.removeEventListener("pointercancel", onCancel);
+              handleRef.current && handleRef.current.removeEventListener("lostpointercapture", onLostCapture);
+            };
+
+            const onCancel = () => {
+              try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+              isDragging.current = false;
+              setDragging(false);
+              window.removeEventListener("pointermove", onMove);
+              window.removeEventListener("pointerup", onUp);
+              window.removeEventListener("pointercancel", onCancel);
+              handleRef.current && handleRef.current.removeEventListener("lostpointercapture", onLostCapture);
+            };
+
+            const onLostCapture = () => {
+              isDragging.current = false;
+              setDragging(false);
+              window.removeEventListener("pointermove", onMove);
+              window.removeEventListener("pointerup", onUp);
+              window.removeEventListener("pointercancel", onCancel);
+              handleRef.current && handleRef.current.removeEventListener("lostpointercapture", onLostCapture);
             };
 
             window.addEventListener("pointermove", onMove);
             window.addEventListener("pointerup", onUp);
+            window.addEventListener("pointercancel", onCancel);
+            handleRef.current && handleRef.current.addEventListener("lostpointercapture", onLostCapture);
           }}
         />
       )}
