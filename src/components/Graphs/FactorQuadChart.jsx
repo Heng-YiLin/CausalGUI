@@ -137,7 +137,7 @@ export default function FactorQuadChart({
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart margin={{ top: 64, right: 24, bottom: 70, left: 48 }}>
+        <ScatterChart margin={{ top: 20, right: 30, bottom: 80, left: 20 }}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
             type="number"
@@ -146,7 +146,7 @@ export default function FactorQuadChart({
             label={{
               value: useNormalised ? "Normalised WPV (%)" : "Raw WPV",
               position: "bottom",
-              offset: 20,
+              offset: 10,
             }}
             domain={[domains.minX, domains.maxX]}
           />
@@ -158,7 +158,6 @@ export default function FactorQuadChart({
               value: useNormalised ? "Normalised WAV (%)" : "Raw WAV",
               angle: -90,
               position: "left",
-              offset: 20,
             }}
             tickMargin={8}
             domain={[domains.minY, domains.maxY]}
@@ -204,7 +203,7 @@ export default function FactorQuadChart({
               position: "top",
               fontSize: 16,
               fontWeight: 700,
-              offset: 30,
+              offset: 15,
             }}
           />
           <ReferenceDot
@@ -217,7 +216,7 @@ export default function FactorQuadChart({
               position: "top",
               fontSize: 16,
               fontWeight: 700,
-              offset: 30,
+              offset: 15,
             }}
           />
           <ReferenceDot

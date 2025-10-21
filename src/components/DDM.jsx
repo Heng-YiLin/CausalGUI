@@ -203,9 +203,12 @@ useEffect(() => {
   const rebuildMatrix = (nodeList, edgeList) => {
     const columns = [
       {
-        headerName: "",
+        headerName: "Impact of ↓ on →",
         field: "rowLabel",
         pinned: "left",
+        suppressMovable: true,
+        wrapHeaderText: true,
+        autoHeaderHeight: true,
         wrapText: true, // allow wrapping (we'll only enable it on pinned rows)
         autoHeight: true, // let the row grow if it wraps
         cellStyle: (p) =>

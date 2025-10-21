@@ -25,6 +25,7 @@ export default function FactorClassGraph({
   edges: propEdges = [],
 }) {
   const [impactWeight, setImpactWeight] = useState(0.2);
+  const [showRawWeighted, setShowRawWeighted] = useState(true);
 
   // A -> Z, AA, AB, ...
   const alphaLabel = (index) => {
@@ -202,45 +203,55 @@ export default function FactorClassGraph({
     );
   };
 
-  const columnDefs = useMemo(
-    () => [
-      { headerName: "ID", field: "alpha", width: 90, pinned: "left" },
-      { headerName: "Node", field: "name", flex: 1, minWidth: 180 },
+  const columnDefs = useMemo(() => {
+    const baseCols = [
+      { headerName: "ID", field: "alpha", width: 45, pinned: "left" },
+      { headerName: "Node", field: "name", flex: 1, width: 25 },
       {
-        headerName: "Impact (AIV / PIV)",
+        headerName: "Impact",
         field: "impactKey",
         valueGetter: (p) => `${p.data.aiv ?? "—"}|${p.data.piv ?? "—"}`,
         cellRenderer: ImpactRenderer,
         flex: 1,
-        minWidth: 220,
+        minWidth: 100,
       },
       {
-        headerName: "Control (ACV / PCV)",
+        headerName: "Control",
         field: "controlKey",
         valueGetter: (p) => `${p.data.acv ?? "—"}|${p.data.pcv ?? "—"}`,
         cellRenderer: ControlRenderer,
         flex: 1,
-        minWidth: 240,
+        minWidth: 100,
       },
+    ];
+
+    const rawCols = [
       {
         headerName: "Raw Weighted Active Value",
         field: "rawWeightedActiveValue",
         flex: 1,
-        minWidth: 220,
+        minWidth: 120,
+        wrapHeaderText: true,
         valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(1)),
       },
       {
         headerName: "Raw Weighted Passive Value",
         field: "rawWeightedPassiveValue",
         flex: 1,
-        minWidth: 220,
+        minWidth: 120,
+        wrapHeaderText: true,
         valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(1)),
       },
+    ];
+
+    const normCols = [
       {
         headerName: "Normalised Weighted Active Value",
         field: "normalisedWeightedActiveValue",
         flex: 1,
-        minWidth: 260,
+        minWidth: 120,
+        wrapHeaderText: true,
+        autoHeaderHeight: true,
         valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(1)),
         cellStyle: (p) => {
           const v = p.value;
@@ -253,7 +264,9 @@ export default function FactorClassGraph({
         headerName: "Normalised Weighted Passive Value",
         field: "normalisedWeightedPassiveValue",
         flex: 1,
-        minWidth: 260,
+        minWidth: 120,
+        wrapHeaderText: true,
+        autoHeaderHeight: true,
         valueFormatter: (p) => (p.value == null ? "—" : p.value.toFixed(1)),
         cellStyle: (p) => {
           const v = p.value;
@@ -262,9 +275,10 @@ export default function FactorClassGraph({
           return { backgroundColor: `rgba(0, ${g}, 0, 0.15)` };
         },
       },
-    ],
-    []
-  );
+    ];
+
+    return showRawWeighted ? [...baseCols, ...rawCols, ...normCols] : [...baseCols, ...normCols];
+  }, [showRawWeighted]);
 
   const defaultColDef = useMemo(
     () => ({
@@ -313,8 +327,18 @@ export default function FactorClassGraph({
           </label>
         </div>
       </div>
+      <div style={{ marginBottom: 8 }}>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14 }}>
+          <input
+            type="checkbox"
+            checked={showRawWeighted}
+            onChange={(e) => setShowRawWeighted(e.target.checked)}
+          />
+          Show Raw Weighted Values
+        </label>
+      </div>
 
-      <div style={{ width: "100%", height: 300 }}>
+      <div style={{ width: "92%", height: 300, margin: "0 auto" }}>
         <AgGridReact
           theme={themeBalham}
           getRowId={(params) => params.data.alpha}
@@ -326,20 +350,8 @@ export default function FactorClassGraph({
         />
       </div>
       <div style={{ display: "flex", gap: 5, marginTop: 10 }}>
-        {/* Raw Values Chart */}
-        <div style={{ flex: 1 }}>
-          <h3 style={{ textAlign: "center", marginBottom: 8 }}>
-            Raw Weighted Values
-          </h3>
-          <FactorQuadChart
-            nodes={coerceNodes}
-            edges={coerceEdges}
-            impactWeight={impactWeight}
-          />
-        </div>
-
         {/* Normalised Values Chart */}
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, margin: "0 auto", width: "80%" }}>
           <h3 style={{ textAlign: "center", marginBottom: 8 }}>
             Normalised Weighted Values
           </h3>
