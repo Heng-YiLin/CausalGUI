@@ -548,7 +548,7 @@ useEffect(() => {
           />
         </label>
       </div>
-      <div style={{ height: "70vh", width: "100%" }}>
+      <div style={{ height: `calc(100vh - 190px)`, width: "100%" }}>
         <AgGridReact
           theme={themeBalham}
           domLayout="normal"

@@ -24,7 +24,7 @@ function edgePolarity(edge) {
     if (d.impact > 0) return "+";
     if (d.impact < 0) return "-";
   }
-  return null; // unknown
+  return null; 
 }
 
 function loopToStellaString(loopIds, nodes, edges) {
@@ -263,22 +263,13 @@ function buildRowsFromGraph(
 const DEFAULT_ROWS = [
   {
     stella:
-      'capacity_of_local_processing_infrastructure ->(+) "clean/sustainable_processing_alternatives" ->(-) environmental_impact ->(-) land_availability ->(-) diversification_of_farming_practices ->(+) primary_food_processing ->(+) "food_production_(productivity_factor)" ->(+) "units_of_food_produced_in_Wales_(volume)" ->(+) food_distribution ->(+) food_available ->(+) consumer_demand ->(+) JIT_processing',
-    loopLength: 12,
-    composite: 1.0,
-    SFC: 2,
-    nSFC: 0.67,
-    CIV: 0.26,
-  },
-  {
-    stella:
-      '"by-products_and_food_waste" ->(+) environmental_impact ->(-) land_availability ->(-) diversification_of_farming_practices ->(+) primary_food_processing ->(+) "food_production_(productivity_factor)" ->(+) "units_of_food_produced_in_Wales_(volume)" ->(+) food_distribution ->(+) food_available ->(+) consumer_demand ->(+) JIT_processing',
-    loopLength: 11,
-    composite: 0.99,
-    SFC: 2,
-    nSFC: 0.67,
-    CIV: 0.3,
-  },
+      'no loop found',
+    loopLength: 0,
+    composite: 0,
+    SFC: 0,
+    nSFC: 0,
+    CIV: 0,
+  }
 ];
 
 const fmt = (n) =>

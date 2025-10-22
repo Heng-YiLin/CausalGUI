@@ -142,7 +142,7 @@ export default function DDMPolarityGrid({ nodes, edges, setNodes, setEdges }) {
 
   return (
     <div style={{ padding: 20 }}>
-      <div style={{ height: `calc(100vh - 150px)`, width: "100%" }}>
+      <div style={{ height: `calc(100vh - 170px)`, width: "100%" }}>
         <AgGridReact
           theme={themeBalham}
           rowData={rowData}
