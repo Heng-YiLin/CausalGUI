@@ -1,10 +1,83 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import "@xyflow/react/dist/style.css";
 import FactorQuadChart from "./Graphs/FactorQuadChart";
 
 // AG Grid (Theming API)
 import { AgGridReact } from "ag-grid-react";
 import { themeBalham } from "ag-grid-community";
+
+// --- Export helpers ---
+function downloadBlob(data, filename, type = "image/png") {
+  const blob = new Blob([data], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function elementToPNG(node, { filename = "factor-graph.png", scale = 2 } = {}) {
+  if (!node) throw new Error("No node to export");
+
+  // 1) Prefer <canvas>
+  const canvas = node.querySelector("canvas");
+  if (canvas && typeof canvas.toDataURL === "function") {
+    const dataUrl = canvas.toDataURL("image/png");
+    const bin = atob(dataUrl.split(",")[1]);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    downloadBlob(arr, filename, "image/png");
+    return;
+  }
+
+  // 2) If there is an <svg>, serialize and draw to a temp canvas
+  const svg = node.querySelector("svg");
+  if (svg) {
+    const clone = svg.cloneNode(true);
+    const bbox = svg.getBBox ? svg.getBBox() : { width: svg.clientWidth, height: svg.clientHeight };
+    const w = Math.ceil(bbox.width || svg.clientWidth || 800);
+    const h = Math.ceil(bbox.height || svg.clientHeight || 600);
+
+    // Ensure xmlns so it renders correctly
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    const xml = new XMLSerializer().serializeToString(clone);
+    const svg64 = btoa(unescape(encodeURIComponent(xml)));
+    const img = new Image();
+    const dataUrl = "data:image/svg+xml;base64," + svg64;
+
+    await new Promise((res, rej) => {
+      img.onload = () => res();
+      img.onerror = (e) => rej(e);
+      img.src = dataUrl;
+    });
+
+    const out = document.createElement("canvas");
+    out.width = w * scale;
+    out.height = h * scale;
+    const ctx = out.getContext("2d");
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.clearRect(0, 0, out.width, out.height);
+    ctx.drawImage(img, 0, 0);
+
+    const pngUrl = out.toDataURL("image/png");
+    const bin = atob(pngUrl.split(",")[1]);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    downloadBlob(arr, filename, "image/png");
+    return;
+  }
+
+  // 3) Fallback: rasterize the container box via HTMLCanvas (very basic). If html2canvas is present, use it.
+  if (window.html2canvas) {
+    const c = await window.html2canvas(node, { scale });
+    c.toBlob((blob) => downloadBlob(blob, filename, "image/png"));
+    return;
+  }
+  throw new Error("Could not find a canvas or svg to export");
+}
 
 /**
  * FactorClassGraph (Phase 1 – QSEM)
@@ -26,6 +99,8 @@ export default function FactorClassGraph({
 }) {
   const [impactWeight, setImpactWeight] = useState(0.2);
   const [showRawWeighted, setShowRawWeighted] = useState(true);
+
+  const graphWrapRef = useRef(null);
 
   // A -> Z, AA, AB, ...
   const alphaLabel = (index) => {
@@ -328,6 +403,31 @@ export default function FactorClassGraph({
         </div>
       </div>
       <div style={{ marginBottom: 8 }}>
+        <button
+          onClick={async () => {
+            try {
+              const ts = new Date();
+              const pad = (n) => String(n).padStart(2, "0");
+              const fname = `FactorGraph_${ts.getFullYear()}-${pad(ts.getMonth()+1)}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(ts.getMinutes())}.png`;
+              await elementToPNG(graphWrapRef.current, { filename: fname, scale: 2 });
+            } catch (e) {
+              console.error(e);
+              alert(e?.message || "Failed to export factor graph as image.");
+            }
+          }}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            border: "1px solid #e5e7eb",
+            background: "#fff",
+            cursor: "pointer",
+            fontSize: 14,
+          }}
+        >
+          Export Factor Graph (PNG)
+        </button>
+      </div>
+      <div style={{ marginBottom: 8 }}>
         <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14 }}>
           <input
             type="checkbox"
@@ -351,7 +451,7 @@ export default function FactorClassGraph({
       </div>
       <div style={{ display: "flex", gap: 5, marginTop: 10 }}>
         {/* Normalised Values Chart */}
-        <div style={{ flex: 1, margin: "0 auto", width: "80%" }}>
+        <div ref={graphWrapRef} style={{ flex: 1, margin: "0 auto", width: "80%", background: "#fff" }}>
           <h3 style={{ textAlign: "center", marginBottom: 8 }}>
             Normalised Weighted Values
           </h3>

@@ -17,6 +17,7 @@ const toNum = (x) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+
 const alphaLabel = (index) => {
   let n = index + 1;
   let label = "";
@@ -92,7 +93,7 @@ export default function FactorQuadChart({
   const data = useMemo(() => {
     return nodes.map((n, i) => {
       const m = metricsById.get(n.id) || {};
-      const alpha = String.fromCharCode(65 + i); // keep A, B, C… ids
+      const alpha = alphaLabel(i)
       const rawX = m.wpv ?? 0;
       const rawY = m.wav ?? 0;
       return {
@@ -134,6 +135,35 @@ export default function FactorQuadChart({
   const leftX = domains.minX + (domains.maxX - domains.minX) * 0.25;
   const rightX = domains.minX + (domains.maxX - domains.minX) * 0.75;
 
+  // Group points by close coordinates (so hover shows all stacked/overlapped nodes)
+  const bucketKey = (x, y) => `${Number(x).toFixed(3)}|${Number(y).toFixed(3)}`;
+
+  const AllInAreaTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const d = payload[0]?.payload;
+    if (!d) return null;
+
+    // find all points in the same bucket as the hovered point
+    const k = bucketKey(d.x, d.y);
+    const same = data
+      .filter((p) => bucketKey(p.x, p.y) === k)
+      .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+
+    return (
+      <div style={{ background: '#fff', border: '1px solid #ccc', padding: 8, maxWidth: 260 }}>
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>Nodes at this position</div>
+        {same.map((p) => (
+          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+            <span><strong>{p.label}</strong></span>
+            <span style={{ opacity: 0.8 }}>
+              nWPV: {Number.isFinite(p.x) ? p.x.toFixed(1) : '-'} | nWAV: {Number.isFinite(p.y) ? p.y.toFixed(1) : '-'}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -162,34 +192,7 @@ export default function FactorQuadChart({
             tickMargin={8}
             domain={[domains.minY, domains.maxY]}
           />
-          <Tooltip
-            cursor={{ strokeDasharray: "3 3" }}
-            content={({ active, payload }) => {
-              if (active && payload && payload.length) {
-                const d = payload[0].payload;
-                return (
-                  <div
-                    style={{
-                      background: "#fff",
-                      border: "1px solid #ccc",
-                      padding: 8,
-                    }}
-                  >
-                    <div>
-                      <strong>ID:</strong> {d.id}
-                    </div>
-                    <div>
-                      {useNormalised ? "Norm WPV" : "Raw WPV"}: {d.x}
-                    </div>
-                    <div>
-                      {useNormalised ? "Norm WAV" : "Raw WAV"}: {d.y}
-                    </div>
-                  </div>
-                );
-              }
-              return null;
-            }}
-          />
+          <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<AllInAreaTooltip />} />
 
           <ReferenceLine x={midX} stroke="#2e7d32" strokeWidth={2} />
           <ReferenceLine y={midY} stroke="#2e7d32" strokeWidth={2} />

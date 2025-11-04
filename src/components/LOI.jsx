@@ -561,6 +561,7 @@ export default function LOI({
       overflow: "auto",
       border: "1px solid #e5e7eb",
       borderRadius: 12,
+      maxHeight: "60vh", // constrain table height and enable scrolling
     },
     table: {
       width: "100%",
@@ -1049,6 +1050,7 @@ export default function LOI({
             overflow: "auto",
             border: "1px solid #f3f4f6",
             borderRadius: 8,
+            maxHeight: "30vh",
           }}
         >
           <table

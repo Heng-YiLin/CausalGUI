@@ -9,6 +9,7 @@ export default function DDMPolarityGrid({ nodes, edges, setNodes, setEdges }) {
   const [rowData, setRowData] = useState([]);
   const [columnDefs, setColumnDefs] = useState([]);
   const gridRef = useRef(null);
+  const edgesRef = useRef(edges);
 
   // Polarity coloring
   const polarityCellStyle = (p) => {
@@ -81,10 +82,16 @@ export default function DDMPolarityGrid({ nodes, edges, setNodes, setEdges }) {
     setRowData(rows);
   };
 
+  // Track latest edges without forcing a grid rebuild (prevents scroll reset)
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
+
   useEffect(() => {
     if (!Array.isArray(nodes) || !nodes.length) return;
-    rebuildMatrix(nodes, edges || []);
-  }, [nodes, edges]);
+    // Rebuild only when nodes change; use latest edges snapshot to avoid scroll resets on each edit
+    rebuildMatrix(nodes, edgesRef.current || []);
+  }, [nodes]);
 
   const nodeIdByLabelOrId = (labelOrId) =>
     nodes.find((n) => (n.data?.label || n.id) === labelOrId)?.id ?? null;
@@ -153,6 +160,8 @@ export default function DDMPolarityGrid({ nodes, edges, setNodes, setEdges }) {
           singleClickEdit={false}
           suppressClickEdit={true}
           defaultColDef={{ resizable: true, width: 70, editable: false }}
+          suppressScrollOnNewData={true}
+          getRowId={({ data }) => (data?._rowNodeId ? `row-${data._rowNodeId}` : 'total-row')}
         />
       </div>
     </div>
