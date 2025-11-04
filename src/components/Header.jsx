@@ -7,13 +7,13 @@ const Header = () => {
   return (
     <nav className="fixed top-0 inset-x-0 z-50 bg-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between py-4">
-          <div className="text-2xl font-bold text-gray-900">
+        <div className="flex items-center justify-between py-4 gap-6">
+          <div className="text-2xl font-bold text-gray-900 ">
             <Link to="/">
               <img src={Logo} alt="Logo" />
             </Link>
           </div>
-          <div className="flex-1 flex justify-around text-black">
+         <div className="flex-1 flex justify-between text-black">
             <Link to="/DDM">Direct Dependency Matrix</Link>
             <Link to="/PM">Polarity Matrix</Link>
             <Link to="/LoopID">Loops</Link>
