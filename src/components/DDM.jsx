@@ -12,6 +12,149 @@ import { themeBalham } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { parseExcelFile } from "./excelImporter";
 
+// Helper: download a Blob as a file (Excel)
+function downloadBlob(data, filename, type = "application/vnd.ms-excel") {
+  const blob = new Blob([data], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// Build an Excel-compatible HTML table from the CURRENT grid (no rebuild)
+function exportDDMExcelFromGrid({
+  gridApi,
+  gridColumnApi,
+  columnDefs,
+  alpha,
+  filename,
+}) {
+  if (!gridApi) {
+    throw new Error("Grid API is not ready yet. Try again in a moment.");
+  }
+
+  // 1) Determine factor columns in CURRENT displayed order using the "W" leaf cols
+  const leafCols =
+    (gridColumnApi && gridColumnApi.getAllGridColumns
+      ? gridColumnApi.getAllGridColumns()
+      : gridApi.getColumns
+      ? gridApi.getColumns()
+      : []) || [];
+  const wCols = leafCols
+    .map((c) =>
+      c && typeof c.getColId === "function" ? c.getColId() : c && c.colId
+    )
+    .filter((id) => typeof id === "string" && id.endsWith("_W"));
+
+  let factorBases = [];
+  let factorLabels = [];
+
+  if (wCols.length > 0) {
+    // Preferred path: use visible W columns to keep current display order
+    const seen = new Set();
+    for (const id of wCols) {
+      const base = String(id).split("_")[0];
+      if (seen.has(base)) continue;
+      seen.add(base);
+      factorBases.push(base);
+    }
+  } else {
+    // Fallback: derive from columnDefs group order
+    const groups = (columnDefs || []).filter((col) =>
+      Array.isArray(col.children)
+    );
+    for (const g of groups) {
+      const child = g.children.find(
+        (ch) => typeof ch.field === "string" && /_.+$/.test(ch.field)
+      );
+      if (!child) continue;
+      const base = child.field.split("_")[0];
+      factorBases.push(base);
+    }
+  }
+
+  // Build baseId -> label map from columnDefs
+  const baseToHeader = new Map();
+  (columnDefs || []).forEach((col) => {
+    if (
+      col &&
+      Array.isArray(col.children) &&
+      typeof col.headerName === "string"
+    ) {
+      const child = col.children.find(
+        (ch) => typeof ch.field === "string" && /_.+$/.test(ch.field)
+      );
+      if (child) {
+        const base = child.field.split("_")[0];
+        baseToHeader.set(base, col.headerName);
+      }
+    }
+  });
+  factorLabels = factorBases.map((b) => baseToHeader.get(b) ?? b);
+
+  if (factorBases.length === 0) {
+    throw new Error(
+      "Couldn't find any W/I/C columns. Make sure your DDM has been built and columns are visible."
+    );
+  }
+
+  // 2) Gather rows in current display order, excluding totals (_pin)
+  const rows = [];
+  gridApi.forEachLeafNode((node) => {
+    const rd = node.data || {};
+    if (rd._pin) return; // skip totals
+    rows.push(rd);
+  });
+
+  if (rows.length === 0) {
+    throw new Error("No rows to export. Add nodes/edges first.");
+  }
+
+  // 3) Build HTML table: header + matrix of W values (weighted by alpha)
+  const esc = (s) =>
+    String(s).replace(
+      /[&<>]/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])
+    );
+  const headerRow = ["Impact of ↓ on →", ...factorLabels]
+    .map((h, i) =>
+      i === 0
+        ? `<th style="text-align:left">${esc(h)}</th>`
+        : `<th>${esc(h)}</th>`
+    )
+    .join("");
+
+  const bodyRows = rows
+    .map((rd, idx) => {
+      const leftLabel = rd.rowLabel ?? rd._rowNodeId ?? "";
+      const left = `<th style="text-align:left">${esc(leftLabel)}</th>`;
+      const cells = factorBases
+        .map((base) => {
+          if (rd._rowNodeId === base) return "<td></td>"; // diagonal blank
+          const iVal = rd[`${base}_I`];
+          const cVal = rd[`${base}_C`];
+          const I = Number.isFinite(Number(iVal)) ? Number(iVal) : 0;
+          const C = Number.isFinite(Number(cVal)) ? Number(cVal) : 0;
+          const a = Number.isFinite(Number(alpha)) ? Number(alpha) : 0;
+          const w = a * I + (1 - a) * C;
+          return Number.isFinite(w)
+            ? `<td>${(Math.round(w * 1000) / 1000).toFixed(3)}</td>`
+            : "<td></td>";
+        })
+        .join("");
+      return `<tr>${left}${cells}</tr>`;
+    })
+    .join("");
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>DDM</title></head><body><table border="1" cellspacing="0" cellpadding="4"><thead><tr>${headerRow}</tr></thead><tbody>${bodyRows}</tbody></table></body></html>`;
+
+  downloadBlob(html, filename || "DDM_export.xls", "application/vnd.ms-excel");
+}
+
 export default function DDMGrid({
   nodes,
   edges,
@@ -25,6 +168,8 @@ export default function DDMGrid({
   const gridRef = useRef(null);
   const gridApiRef = useRef(null);
   const gridColumnApiRef = useRef(null);
+  const [gridReady, setGridReady] = useState(false);
+  const edgesRef = useRef(edges);
   // Inject visible grid borders and compact I/C header style
   useEffect(() => {
     const style = document.createElement("style");
@@ -84,15 +229,19 @@ export default function DDMGrid({
     } catch (_) {}
   }, []);
 
-  
-// Persist impact weight whenever it changes + broadcast for same-tab listeners
-useEffect(() => {
-  try {
-    if (Number.isFinite(Number(impactWeight))) {
-      localStorage.setItem("ddmImpactWeight", String(impactWeight));
-    }
-  } catch (_) {}
-}, [impactWeight]);
+  // Persist impact weight whenever it changes + broadcast for same-tab listeners
+  useEffect(() => {
+    try {
+      if (Number.isFinite(Number(impactWeight))) {
+        localStorage.setItem("ddmImpactWeight", String(impactWeight));
+      }
+    } catch (_) {}
+  }, [impactWeight]);
+
+  // Track latest edges without forcing a grid rebuild (prevents scroll reset)
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
 
   const refreshTotals = (api) => api?.refreshCells({ force: true });
   // Excel Import
@@ -397,8 +546,9 @@ useEffect(() => {
   // === Initialize matrix from props ===
   useEffect(() => {
     if (!Array.isArray(nodes) || !nodes.length) return;
-    rebuildMatrix(nodes, edges || []);
-  }, [nodes, edges]);
+    // Rebuild once when node structure changes; use latest edges snapshot
+    rebuildMatrix(nodes, edgesRef.current || []);
+  }, [nodes]);
 
   // === Get next available node ID ===
   const getNextNodeId = () => {
@@ -506,6 +656,7 @@ useEffect(() => {
     } catch (_) {}
   }, []);
 
+  // Removed canExport: always enable export button, guard in click handler.
   return (
     <div style={{ padding: 10 }}>
       <div
@@ -547,6 +698,47 @@ useEffect(() => {
             }}
           />
         </label>
+        <button
+          title="Export the current DDM grid to Excel"
+          onClick={() => {
+            try {
+              if (!gridApiRef.current) {
+                throw new Error(
+                  "Grid isn't ready yet. Wait for the table to finish loading."
+                );
+              }
+              const ts = new Date();
+              const pad = (n) => String(n).padStart(2, "0");
+              const base = `DDM_${ts.getFullYear()}-${pad(
+                ts.getMonth() + 1
+              )}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(
+                ts.getMinutes()
+              )}`;
+              // IC-only export (no W, no totals) in the current grid order
+              exportDDM_IC_Only({
+                gridApi: gridApiRef.current,
+                gridColumnApi: gridColumnApiRef.current,
+                columnDefs,
+                filenameBase: base,
+              });
+            } catch (e) {
+              console.error(e);
+              alert(
+                e?.message || "Failed to export DDM. See console for details."
+              );
+            }
+          }}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            border: "1px solid #e5e7eb",
+            background: "#fff",
+            cursor: "pointer",
+            fontSize: 14,
+          }}
+        >
+          Export DDM (Excel)
+        </button>
       </div>
       <div style={{ height: `calc(100vh - 190px)`, width: "100%" }}>
         <AgGridReact
@@ -564,9 +756,24 @@ useEffect(() => {
           stopEditingWhenCellsLoseFocus={true}
           singleClickEdit={false}
           defaultColDef={{ resizable: true, width: 90, editable: true }}
+          suppressScrollOnNewData={true}
           onGridReady={(params) => {
             gridApiRef.current = params.api;
             gridColumnApiRef.current = params.columnApi;
+            setGridReady(true);
+            // Debug hooks
+            try {
+              console.debug(
+                "DDM onGridReady: api?",
+                !!params.api,
+                "colApi?",
+                !!params.columnApi,
+                "columns via api.getColumns?",
+                typeof params.api?.getColumns === "function"
+              );
+              // Expose for quick manual checks in DevTools
+              window.ddmDebug = { api: params.api, colApi: params.columnApi };
+            } catch (_) {}
             setTimeout(ensureSummaryAtEnd, 0);
           }}
           onColumnMoved={ensureSummaryAtEnd}
@@ -576,4 +783,135 @@ useEffect(() => {
       </div>
     </div>
   );
+}
+
+// Async exporter: I & C only (no W, no totals), two-row header
+async function exportDDM_IC_Only({
+  gridApi,
+  gridColumnApi,
+  columnDefs,
+  filenameBase,
+}) {
+  if (!gridApi)
+    throw new Error("Grid API is not ready yet. Try again in a moment.");
+
+  // Determine factor columns in current display order (works with old/new AG Grid APIs)
+  const leafCols =
+    (gridColumnApi && gridColumnApi.getAllGridColumns
+      ? gridColumnApi.getAllGridColumns()
+      : gridApi.getColumns
+      ? gridApi.getColumns()
+      : []) || [];
+
+  const anyIds = leafCols
+    .map((c) =>
+      c && typeof c.getColId === "function" ? c.getColId() : c && c.colId
+    )
+    .filter(Boolean);
+
+  // Prefer visible *_I columns; fall back to columnDefs groups
+  let factorBases = [];
+  const iCols = anyIds.filter(
+    (id) => typeof id === "string" && id.endsWith("_I")
+  );
+  if (iCols.length) {
+    const seen = new Set();
+    for (const id of iCols) {
+      const base = String(id).split("_")[0];
+      if (seen.has(base)) continue;
+      seen.add(base);
+      factorBases.push(base);
+    }
+  } else {
+    const groups = (columnDefs || []).filter((c) => Array.isArray(c.children));
+    for (const g of groups) {
+      const ch = g.children.find(
+        (x) => typeof x.field === "string" && x.field.endsWith("_I")
+      );
+      if (ch) factorBases.push(ch.field.split("_")[0]);
+    }
+  }
+
+  // Map base -> label
+  const baseToHeader = new Map();
+  (columnDefs || []).forEach((col) => {
+    if (
+      col &&
+      Array.isArray(col.children) &&
+      typeof col.headerName === "string"
+    ) {
+      const child = col.children.find(
+        (ch) => typeof ch.field === "string" && /_.+$/.test(ch.field)
+      );
+      if (child) baseToHeader.set(child.field.split("_")[0], col.headerName);
+    }
+  });
+  const factorLabels = factorBases.map((b) => baseToHeader.get(b) ?? b);
+  if (!factorBases.length)
+    throw new Error("Couldn't find any I/C columns. Build the DDM first.");
+
+  // Collect normal rows only (skip totals)
+  const rows = [];
+  gridApi.forEachLeafNode((node) => {
+    const rd = node.data || {};
+    if (!rd._pin) rows.push(rd);
+  });
+  if (!rows.length)
+    throw new Error("No rows to export. Add nodes/edges first.");
+
+  // Build AOA with two header rows: group labels then I/C
+  const headerTop = [
+    "Impact of ↓ on →",
+    ...factorLabels.flatMap((lbl) => [lbl, ""]),
+  ];
+  const headerSub = ["", ...factorBases.flatMap(() => ["I", "C"])];
+  const aoa = [headerTop, headerSub];
+
+  for (const rd of rows) {
+    const left = rd.rowLabel ?? rd._rowNodeId ?? "";
+    const row = [left];
+    for (const base of factorBases) {
+      if (rd._rowNodeId === base) {
+        row.push("", "");
+        continue;
+      } // diagonal blank
+      const I = rd[`${base}_I`];
+      const C = rd[`${base}_C`];
+      row.push(I == null ? "" : I, C == null ? "" : C);
+    }
+    aoa.push(row);
+  }
+
+  const base = filenameBase || "DDM_IC";
+  try {
+    const XLSX =
+      (await import(/* webpackIgnore: true */ "xlsx")).default ||
+      (await import("xlsx"));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!freeze"] = { xSplit: 1, ySplit: 2 }; // freeze first col + two header rows
+    const widths = [{ wch: 28 }];
+    factorBases.forEach(() => {
+      widths.push({ wch: 6 }, { wch: 6 });
+    });
+    ws["!cols"] = widths;
+    XLSX.utils.book_append_sheet(wb, ws, "DDM - I & C");
+    XLSX.writeFile(wb, `${base}.xlsx`);
+  } catch (e) {
+    console.warn(
+      "SheetJS not available, falling back to CSV (two header rows).",
+      e
+    );
+    const csv = aoa
+      .map((row) =>
+        row
+          .map((v) => {
+            const s = v == null ? "" : String(v);
+            return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+          })
+          .join(",")
+      )
+      .join("\n");
+    downloadBlob("\uFEFF" + csv, `${base}.csv`, "text/csv;charset=utf-8");
+  }
 }
