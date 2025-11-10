@@ -2,7 +2,6 @@ import React, {
   useEffect,
   useState,
   useRef,
-  useMemo,
   useCallback,
 } from "react";
 import "@xyflow/react/dist/style.css";
@@ -10,7 +9,15 @@ import { AllCommunityModule, ModuleRegistry } from "ag-grid-community";
 ModuleRegistry.registerModules([AllCommunityModule]);
 import { themeBalham } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { parseExcelFile } from "./excelImporter";
+
+/**
+ * DDM Grid (Direct Dependency Matrix)
+ * 
+ * Grouped coloumn per factor/node with subcoloumn
+ * I = Impact 
+ * C = Control
+ * W = a*I + (1-a)*C  representing pairwsie weight with coefficient 'a'
+ */
 
 // Helper: download a Blob as a file (Excel)
 function downloadBlob(data, filename, type = "application/vnd.ms-excel") {
@@ -244,13 +251,6 @@ export default function DDMGrid({
   }, [edges]);
 
   const refreshTotals = (api) => api?.refreshCells({ force: true });
-  // Excel Import
-  const handleExcelUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      parseExcelFile(file, setColumnDefs, setRowData, setNodes, setEdges);
-    }
-  };
   const getRowHeight = useCallback(() => {
     return undefined; // uniform height for all rows
   }, []);

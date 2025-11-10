@@ -1,4 +1,3 @@
-// src/components/Export.jsx
 import React, { useRef } from "react";
 
 function downloadBlob(data, filename, type = "application/json") {
@@ -13,14 +12,6 @@ function downloadBlob(data, filename, type = "application/json") {
 
 /**
  * Export / Import controls for Nodes & Edges persisted in localStorage.
- *
- * Props (all optional):
- * - nodes: live in-memory nodes array (overrides localStorage for export)
- * - edges: live in-memory edges array (overrides localStorage for export)
- * - setNodes(array): immediately update app state after import
- * - setEdges(array): immediately update app state after import
- * - onImported({nodes, edges}): callback after successful import
- * - storageKeys: { nodesKey: string, edgesKey: string }
  */
 export default function Export({ nodes: liveNodes, edges: liveEdges, setNodes, setEdges, onImported, storageKeys }) {
   const fileInputRef = useRef(null);

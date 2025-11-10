@@ -1,3 +1,10 @@
+/**
+ * Sidebar (DnDComponent)
+ * This component serves as the control sidebar for the CLD editor.
+ * 
+ * Provides drag-and-drop functionality to add new nodes to the diagram.
+ * Includes toggle button for loop labels.
+ */
 import { useState } from "react";
 import { useDnD } from "../DnDContext";
 import DownloadButton from "../DownloadButton";

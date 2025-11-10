@@ -4,6 +4,12 @@ import { findSimpleCycles } from "./findSimpleCycles";
 
 const STORAGE_KEY = "cld.loopOffsets";
 
+/**
+ * Overlay component that identifies and displays reinforcing (R) and balancing (B) loops
+ * on top of a React Flow canvas. Loops can be dragged to reposition them, with
+ * positions persisted in localStorage.
+ * 
+ */
 export default function LoopOverlay({ nodes, edges }) {
   const [tx, ty, zoom] = useStore((s) => s.transform);
   const [{ ox, oy }, setOrigin] = useState({ ox: 0, oy: 0 });

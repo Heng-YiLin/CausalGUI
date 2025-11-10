@@ -1,5 +1,8 @@
 import { Handle, Position, useConnection } from "@xyflow/react";
 
+/**
+ * Custom Node component with dynamic connection handles and centered input field.
+ */
 export default function CustomNode({ id, data }) {
   const connection = useConnection();
 

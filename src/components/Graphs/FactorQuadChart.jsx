@@ -12,11 +12,20 @@ import {
   LabelList,
 } from "recharts";
 
+/**
+ * Facto Quad Chart component for visualizing nodes in four quadrants based on
+ * weighted active and passive impact/control values.
+ * 
+ * plots nodes on a scatter chart with quadrants:
+ * - Steering factors (high active, low passive)
+ * - Ambivalent factors (high active, high passive)
+ * - Autonomous factors (low active, low passive)
+ * - Measuring factors (low active, high passive)
+ */
 const toNum = (x) => {
   const n = Number(x);
   return Number.isFinite(n) ? n : 0;
 };
-
 
 const alphaLabel = (index) => {
   let n = index + 1;

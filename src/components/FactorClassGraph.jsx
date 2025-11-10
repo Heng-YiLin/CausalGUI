@@ -2,6 +2,11 @@ import React, { useMemo, useState, useRef } from "react";
 import "@xyflow/react/dist/style.css";
 import FactorQuadChart from "./Graphs/FactorQuadChart";
 
+/**
+ * Factor Class Graph Component 
+ * lists nodes and calculate normalised weighted active value and normalised weighted passive value
+ */
+
 // AG Grid (Theming API)
 import { AgGridReact } from "ag-grid-react";
 import { themeBalham } from "ag-grid-community";

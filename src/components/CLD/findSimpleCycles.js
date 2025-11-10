@@ -3,12 +3,6 @@
  * enumerates simple directed cycles drawn in the CLD graph using a canonical rooting DFS.
  * Canonical rooting uses least vertex by id to avoid duplicates.
  * Max len bounds cycle length and topK bound total number of cycles determined through meetings.
- * 
- * @param {*} nodes 
- * @param {*} edges 
- * @param {*} maxLen 
- * @param {*} topK 
- * @returns 
  */
 export function findSimpleCycles(nodes, edges, maxLen = 8, topK = 1000) {
   // --- Build adjacency (directed) and an edge lookup map ---
@@ -39,11 +33,6 @@ export function findSimpleCycles(nodes, edges, maxLen = 8, topK = 1000) {
 
   /**
    * DFS with canonical rooting and simple cycle constraint.
-   * @param {string} start - cycle root 
-   * @param {string} v - current node/vertex
-   * @param {string[]} path - current path 
-   * @param {Set<string>} onPath - membership set to enforce no repeats
-   * @returns 
    */
   function dfs(start, v, path, onPath) {
     if (cycles.length >= topK) return;

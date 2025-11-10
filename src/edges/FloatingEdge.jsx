@@ -3,6 +3,11 @@ import { getEdgeParams } from "./initalElements.js";
 import { useState, useRef, useEffect } from "react";
 import { Plus, Minus, CircleOff } from "lucide-react";
 
+/**
+ * Floating Edge is custom edge that holds Impact and Control value relation between
+ * two nodes
+ */
+
 function getQuadraticPath(sx, sy, tx, ty, cx, cy) {
   return `M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`;
 }

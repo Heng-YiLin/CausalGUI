@@ -3,7 +3,9 @@ import { Panel, useReactFlow, getViewportForBounds } from '@xyflow/react';
 import { toPng } from 'html-to-image';
 import { ImageDown } from "lucide-react";
 
-
+/**
+ * Downloads the CLD image
+ */
 function downloadImage(dataUrl) {
   const a = document.createElement('a');
   a.setAttribute('download', 'reactflow.png');

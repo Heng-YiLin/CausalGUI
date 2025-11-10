@@ -66,6 +66,12 @@ This will launch Vite development server. To connect open the provided Vite loca
 ```bash
 npm run dev
 
+## Acknowledgement of AI Assistance
+
+Portions of this project’s documentation, syntax refinement, and debugging were supported by
+AI-assisted tools (ChatGPT). These tools were used to improve code structure,
+clarity, and technical writing without generating original research content.
+
 
 ## Contact
 
