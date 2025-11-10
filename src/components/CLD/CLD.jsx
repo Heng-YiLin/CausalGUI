@@ -25,6 +25,13 @@ import Sidebar from "./Sidebar";
 import { useDnD } from "../DnDContext";
 import LoopOverlay from "./LoopOverlay";
 
+/** 
+ * CLD Component
+ *  Renders a causal loop diagram editor using React Flow.
+ * Supports adding nodes via drag-and-drop, connecting edges,
+ * automatic layout, and loop visualization.
+ */
+
 const connectionLineStyle = {
   stroke: "#b1b1b7",
 };
@@ -110,6 +117,9 @@ function separateParallelEdges(eds) {
   return changed ? next : eds;
 }
 
+/*
+  * CLD Component rendering the causal loop diagram editor.
+  */
 const CLD = ({ nodes, setNodes, edges, setEdges }) => {
   const wrapperRef = useRef(null);
   const { screenToFlowPosition, fitView } = useReactFlow();
@@ -140,6 +150,12 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
   }, []);
 
   const nodeRadius = (id) => 36;
+  
+  /**
+   * Run automatic layout of the graph using a force-directed algorithm.
+   * Updates node positions and edge offsets accordingly.
+   * @param {string} mode - Layout mode (currently only "force" is supported).
+   */
   const runLayout = useCallback(
     (mode = "force") => {
       const rect = wrapperRef.current?.getBoundingClientRect();
@@ -147,7 +163,6 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
       const height = rect?.height || 700;
       const safeEdges = sanitizeEdges(nodes, edges);
 
-      // degree map (for charge scaling)
       const deg = new Map();
       edges.forEach((e) => {
         deg.set(e.source, (deg.get(e.source) || 0) + 1);
@@ -173,15 +188,15 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
         target: e.target,
         w: Math.max(0, Math.min(1, (e.data?.impact ?? 0) / 10)),
       }));
-      // -------- Force-directed preset (good at de-overlap) --------
+      //force layout parameters
       const LINK_DIST_BASE = 250;
       const LINK_DIST_MIN = 180;
       const LINK_STRENGTH_MIN = 0.03;
       const LINK_STRENGTH_MAX = 0.16;
       const CHARGE_BASE = -200;
-      const CHARGE_HUB_BONUS = -40; // extra repulsion per degree
-      const COLLIDE = 0.9; // * nodeRadius
-      const AXIS_PULL = 0.01; // tiny bias to center lines
+      const CHARGE_HUB_BONUS = -40; 
+      const COLLIDE = 0.9; 
+      const AXIS_PULL = 0.01;
       const LINK_ITER = 2;
       const TICKS = 220;
 
@@ -234,7 +249,7 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
     },
     [nodes, edges, setNodes, setEdges, wrapperRef]
   );
-
+  
   const nodesRef = useRef(nodes);
   useEffect(() => {
     nodesRef.current = nodes;
@@ -277,7 +292,7 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
       }))
     );
   }, []);
-
+  // Generate a new unique node ID for added nodes
   const getId = () => {
     const numericIds = nodesRef.current
       .map((n) => parseInt(n.id, 10))
@@ -348,7 +363,7 @@ const CLD = ({ nodes, setNodes, edges, setEdges }) => {
             Rearrange
           </button>
         </div>
-
+        {/* React Flow Canvas */}
         <ReactFlow
           nodes={nodes}
           edges={edges}

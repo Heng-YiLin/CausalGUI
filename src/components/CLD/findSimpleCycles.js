@@ -1,5 +1,17 @@
-export function findSimpleCycles(nodes, edges) {
-  // Build adjacency list keyed by node id
+/**
+ * findSimpleCycles
+ * enumerates simple directed cycles drawn in the CLD graph using a canonical rooting DFS.
+ * Canonical rooting uses least vertex by id to avoid duplicates.
+ * Max len bounds cycle length and topK bound total number of cycles determined through meetings.
+ * 
+ * @param {*} nodes 
+ * @param {*} edges 
+ * @param {*} maxLen 
+ * @param {*} topK 
+ * @returns 
+ */
+export function findSimpleCycles(nodes, edges, maxLen = 8, topK = 1000) {
+  // --- Build adjacency (directed) and an edge lookup map ---
   const adj = new Map();
   const outEdges = new Map(); // map: src -> array of edges
   nodes.forEach((n) => adj.set(n.id, new Set()));
@@ -10,82 +22,69 @@ export function findSimpleCycles(nodes, edges) {
     outEdges.get(e.source).push(e);
   });
 
+  // Canonical-rooting DFS setup
+  const nodeIds = nodes.map((n) => n.id).sort(); // total order over vertices
+  const idx = new Map(nodeIds.map((v, i) => [v, i]));
+
   const cycles = [];
-  const blocked = new Set();
-  const B = new Map();
-  const stack = [];
-  const nodeIds = nodes.map((n) => n.id).sort();
+  const seen = new Set(); // rotation-invariant keys to guard against duplicates
 
-  // Johnson's algorithm (lightweight)
-  function unblock(u) {
-    blocked.delete(u);
-    const set = B.get(u);
-    if (set) {
-      for (const w of Array.from(set)) {
-        B.get(u).delete(w);
-        if (blocked.has(w)) unblock(w);
-      }
-    }
+  function canonicalKey(ids) {
+    if (!Array.isArray(ids) || ids.length === 0) return "";
+    const rotations = ids.map((_, k) => ids.slice(k).concat(ids.slice(0, k)));
+    // Sort the rotations alphabetically and choose the smallest one
+    // as the canonical representation for this loop.
+    return rotations.map((r) => r.join("->")).sort()[0];
   }
 
-  function circuit(v, start) {
-    let found = false;
-    stack.push(v);
-    blocked.add(v);
+  /**
+   * DFS with canonical rooting and simple cycle constraint.
+   * @param {string} start - cycle root 
+   * @param {string} v - current node/vertex
+   * @param {string[]} path - current path 
+   * @param {Set<string>} onPath - membership set to enforce no repeats
+   * @returns 
+   */
+  function dfs(start, v, path, onPath) {
+    if (cycles.length >= topK) return;
+    if (path.length > maxLen) return;
 
+    const startIdx = idx.get(start);
     for (const w of adj.get(v) || []) {
-      if (w === start) {
-        cycles.push([...stack, start]);
-        found = true;
-      } else if (!blocked.has(w)) {
-        if (circuit(w, start)) found = true;
+      const wIdx = idx.get(w);
+      // Enforce canonical rooting: only traverse vertices whose index >= start's
+      if (wIdx < startIdx) continue;
+
+      if (w === start && path.length >= 2) {
+        // Found a simple cycle; record without repeating start in returned path
+        const pathOnly = [...path];
+        const key = canonicalKey(pathOnly);
+        if (!seen.has(key)) {
+          seen.add(key);
+          cycles.push(pathOnly);
+        }
+        if (cycles.length >= topK) return;
+        continue;
       }
-    }
 
-    if (found) {
-      unblock(v);
-    } else {
-      for (const w of adj.get(v) || []) {
-        if (!B.has(w)) B.set(w, new Set());
-        B.get(w).add(v);
-      }
-    }
+      if (onPath.has(w)) continue; // simple cycle constraint
+      if (path.length + 1 > maxLen) continue;
 
-    stack.pop();
-    return found;
-  }
-
-  for (let i = 0; i < nodeIds.length; i++) {
-    const start = nodeIds[i];
-    circuit(start, start);
-    // Remove start from graph
-    for (const s of adj.keys()) {
-      adj.get(s).delete(start);
+      onPath.add(w);
+      path.push(w);
+      dfs(start, w, path, onPath);
+      path.pop();
+      onPath.delete(w);
     }
   }
 
-  // Helper to canonicalize a cycle path
-  function canonicalKey(path) {
-    // rotate so smallest lexicographic rotation is chosen
-    const rots = path.map((_, k) => path.slice(k).concat(path.slice(0, k)));
-    return rots.map((r) => r.join("->")).sort()[0];
+  for (const s of nodeIds) {
+    const onPath = new Set([s]);
+    dfs(s, s, [s], onPath);
+    if (cycles.length >= topK) break;
   }
 
-  // Deduplicate by canonical rotation and remove trivial (length<2)
-  const seen = new Set();
-  const unique = [];
-  for (const cyc of cycles) {
-    // cyc ends with start, drop last for canonicalization
-    const path = cyc.slice(0, -1);
-    if (path.length < 2) continue; // allow 2-node cycles like A<->B
-    const key = canonicalKey(path);
-    if (!seen.has(key)) {
-      seen.add(key);
-      unique.push(path);
-    }
-  }
-
-  // --- Ensure 2-node cycles are included even if missed by the DFS ---
+  // --- Ensure 2-node cycles are included even if missed (safety net) ---
   // If there exists both a->b and b->a, add [a,b] as a cycle.
   nodes.forEach((na) => {
     const a = na.id;
@@ -100,19 +99,20 @@ export function findSimpleCycles(nodes, edges) {
         const key = canonicalKey(path);
         if (!seen.has(key)) {
           seen.add(key);
-          unique.push(path);
+          cycles.push(path);
         }
       }
     });
   });
 
-  // Attach edge info per cycle
+  // Attach edge info per cycle (polarity and centroid), preserving previous behaviour
   function edgeLookup(a, b) {
     const list = outEdges.get(a) || [];
     return list.find((e) => e.target === b);
   }
 
-  return unique.map((nodeCycle) => {
+  return cycles.map((nodeCycle) => {
+    // Determine loop polarity: even negatives => reinforcing (R); odd => balancing (B)
     let neg = 0;
     for (let i = 0; i < nodeCycle.length; i++) {
       const a = nodeCycle[i];
@@ -121,20 +121,22 @@ export function findSimpleCycles(nodes, edges) {
       const s = e?.data?.sign;
       if (s === "-") neg++;
     }
-    const type = neg % 2 === 0 ? "R" : "B"; // even negatives => reinforcing
+    const type = neg % 2 === 0 ? "R" : "B";
 
-    // centroid of nodes in flow coords
+    // Centroid of nodes in canvas coords
     let sx = 0,
       sy = 0;
     const pts = nodeCycle
       .map((id) => nodes.find((n) => n.id === id))
       .filter(Boolean);
     pts.forEach((n) => {
-      sx += n.position.x + (n.width || 0) / 2;
-      sy += n.position.y + (n.height || 0) / 2;
+      const w = n.width || 0;
+      const h = n.height || 0;
+      sx += n.position.x + w / 2;
+      sy += n.position.y + h / 2;
     });
-    const cx = sx / pts.length;
-    const cy = sy / pts.length;
+    const cx = pts.length ? sx / pts.length : 0;
+    const cy = pts.length ? sy / pts.length : 0;
 
     return { ids: nodeCycle, type, cx, cy };
   });

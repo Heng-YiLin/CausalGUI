@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { findSimpleCycles as findSimpleCyclesShared } from "./CLD/findSimpleCycles.js";
 
 // --- Helpers to detect simple cycles (loops) from nodes & edges ---
 function labelFor(id, nodes) {
@@ -40,56 +41,15 @@ function loopToStellaString(loopIds, nodes, edges) {
   return parts.join(" ") + ` ${labelFor(loopIds[0], nodes)}`; // close visually
 }
 
-// Canonical rotation to dedupe (direction preserved)
-function canonicalRotate(ids) {
-  const n = ids.length;
-  let best = null;
-  for (let s = 0; s < n; s++) {
-    const rot = ids.slice(s).concat(ids.slice(0, s));
-    const key = rot.join("\u0001");
-    if (best === null || key < best) best = key;
+// Normalise cycles from shared finder: accept either [id,...] or { ids: [...] }
+function normaliseCycles(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const c of raw) {
+    if (Array.isArray(c)) out.push(c);
+    else if (c && Array.isArray(c.ids)) out.push(c.ids);
   }
-  return best;
-}
-
-function findSimpleCycles(nodes, edges, maxLen = 12, topK = 1000) {
-  const adj = new Map(nodes.map((n) => [n.id, []]));
-  for (const e of edges) {
-    if (adj.has(e.source)) adj.get(e.source).push(e.target);
-  }
-  const foundKeys = new Set();
-  const loops = [];
-
-  function dfs(start, current, path, visited) {
-    if (path.length > maxLen) return;
-    for (const nxt of adj.get(current) || []) {
-      if (nxt === start && path.length >= 2) {
-        // Found a loop: path + [start]
-        const ids = [...path]; // simple cycle without repeating start at end
-        const key = canonicalRotate(ids);
-        if (!foundKeys.has(key)) {
-          foundKeys.add(key);
-          loops.push(ids);
-          if (loops.length >= topK) return; // soft cap
-        }
-      } else if (!visited.has(nxt)) {
-        visited.add(nxt);
-        path.push(nxt);
-        dfs(start, nxt, path, visited);
-        path.pop();
-        visited.delete(nxt);
-      }
-    }
-  }
-
-  for (const n of nodes) {
-    const start = n.id;
-    const visited = new Set([start]);
-    dfs(start, start, [start], visited);
-    if (loops.length >= topK) break;
-  }
-
-  return loops;
+  return out;
 }
 
 function buildRowsFromGraph(
@@ -105,7 +65,7 @@ function buildRowsFromGraph(
   coeffCIV = 1
 ) {
   if (!nodes.length || !edges.length) return [];
-  const cycles = findSimpleCycles(nodes, edges, maxLen);
+  const cycles = normaliseCycles(findSimpleCyclesShared(nodes, edges, maxLen));
   const rows = cycles.map((ids) => {
     let product = null;
     let pairwiseDetails = "";
@@ -434,7 +394,7 @@ export default function LOI({
   const loopFreq = useMemo(() => {
     const freqMap = new Map(nodes.map((n) => [n.id, 0]));
     if (nodes.length && edges.length) {
-      const cycles = findSimpleCycles(nodes, edges, maxLen);
+      const cycles = normaliseCycles(findSimpleCyclesShared(nodes, edges, maxLen));
       for (const ids of cycles) {
         for (const id of ids) {
           if (freqMap.has(id)) freqMap.set(id, (freqMap.get(id) || 0) + 1);

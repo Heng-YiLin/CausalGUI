@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { findSimpleCycles as findSimpleCyclesShared } from "./CLD/findSimpleCycles.js";
 import Collapsible from "react-collapsible";
 
 /**
@@ -34,7 +35,7 @@ export default function LoopID({
   const [sortMode, setSortMode] = useState("none"); // "none" | "R-first" | "B-first"
   const [filterText, setFilterText] = useState("");
 
-  const { vertices, adj, idToLabel, edgeMap } = useMemo(() => {
+  const { vertices, adj, idToLabel, edgeMap, edgesForCycles } = useMemo(() => {
     const vs = [...nodes.map((n) => n.id)].sort();
     const adj = new Map(vs.map((id) => [id, []]));
     const idToLabel = new Map(nodes.map((n) => [n.id, n.data?.label || n.id]));
@@ -53,11 +54,22 @@ export default function LoopID({
       adj.get(e.source).push(e.target);
       edgeMap.set(`${e.source}→${e.target}`, e);
     }
-    return { vertices: vs, adj, idToLabel, edgeMap };
+    return { vertices: vs, adj, idToLabel, edgeMap, edgesForCycles: Array.from(best.values()) };
   }, [nodes, edges]);
 
+  // Normalise cycles from shared finder: accept either [id,...] or { ids: [...] }
+  function normaliseCycles(raw) {
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    for (const c of raw) {
+      if (Array.isArray(c)) out.push(c);
+      else if (c && Array.isArray(c.ids)) out.push(c.ids);
+    }
+    return out;
+  }
+
   useEffect(() => {
-    const res = findAllCycles(vertices, adj, { maxLen, maxCount: topK });
+    const res = normaliseCycles(findSimpleCyclesShared(nodes, edgesForCycles, maxLen, topK));
 
     const seen = new Set();
     const uniq = [];
@@ -77,7 +89,7 @@ export default function LoopID({
     });
 
     setLoops(uniq.map((nodes) => ({ nodes })));
-  }, [vertices, adj, idToLabel, edgeMap, maxLen, topK]);
+  }, [vertices, adj, idToLabel, edgeMap, edgesForCycles, nodes, maxLen, topK]);
 
   // Suppress unused node/id if not used
   void node;
@@ -498,41 +510,6 @@ function LoopDetails({
 }
 
 /* ---------------- helpers ---------------- */
-// DFS with least-vertex rooting (Johnson-style constraint)
-function findAllCycles(vertices, adj, { maxLen = 8, maxCount = 1000 } = {}) {
-  const idx = new Map(vertices.map((v, i) => [v, i]));
-  const result = [];
-
-  function dfs(start, v, path, onPath) {
-    if (result.length >= maxCount) return;
-    const startIdx = idx.get(start);
-
-    for (const w of adj.get(v) || []) {
-      const wIdx = idx.get(w);
-      if (wIdx < startIdx) continue; // root at min vertex
-      if (w === start && path.length >= 2) {
-        result.push([...path]); // found cycle
-        if (result.length >= maxCount) return;
-        continue;
-      }
-      if (onPath.has(w)) continue; // simple (no repeats)
-      if (path.length + 1 > maxLen) continue;
-
-      onPath.add(w);
-      path.push(w);
-      dfs(start, w, path, onPath);
-      path.pop();
-      onPath.delete(w);
-    }
-  }
-
-  for (const s of vertices) {
-    const onPath = new Set([s]);
-    dfs(s, s, [s], onPath);
-    if (result.length >= maxCount) break;
-  }
-  return result;
-}
 
 // Direction-preserving canonical key (rotation only)
 function canonicalKeyDirected(nodes) {

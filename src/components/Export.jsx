@@ -15,20 +15,61 @@ function downloadBlob(data, filename, type = "application/json") {
  * Export / Import controls for Nodes & Edges persisted in localStorage.
  *
  * Props (all optional):
+ * - nodes: live in-memory nodes array (overrides localStorage for export)
+ * - edges: live in-memory edges array (overrides localStorage for export)
  * - setNodes(array): immediately update app state after import
  * - setEdges(array): immediately update app state after import
  * - onImported({nodes, edges}): callback after successful import
  * - storageKeys: { nodesKey: string, edgesKey: string }
  */
-export default function Export({ setNodes, setEdges, onImported, storageKeys }) {
+export default function Export({ nodes: liveNodes, edges: liveEdges, setNodes, setEdges, onImported, storageKeys }) {
   const fileInputRef = useRef(null);
   const nodesKey = storageKeys?.nodesKey || "savedNodes";
   const edgesKey = storageKeys?.edgesKey || "savedEdges";
 
+  // Export ONLY the minimal structure needed to reconstruct the model.
+  // (No derived metrics, no UI flags.)
+  const stripNode = (n) => ({
+    id: n.id,
+    type: n.type ?? "custom",
+    position: n.position || { x: 0, y: 0 },
+    data: { label: n?.data?.label ?? "" },
+  });
+
+  const clamp03 = (v) => (typeof v === "number" ? Math.max(0, Math.min(3, v)) : 0);
+
+  const stripEdge = (e) => {
+    const d = e?.data || {};
+    // prefer 'impact'; fall back to legacy 'influence'
+    const impact = clamp03(d.impact ?? d.influence);
+    const control = clamp03(d.control);
+    const offset = typeof d.offset === "number" ? d.offset : 0;
+    const sign = d.sign === "-" ? "-" : "+"; // default '+'
+    return {
+      id: e.id ?? `${e.source}-${e.target}-${Date.now()}`,
+      source: e.source,
+      target: e.target,
+      type: e.type ?? "floating",
+      data: { impact, control, offset, sign },
+    };
+  };
+
   const exportJson = () => {
-    const nodes = JSON.parse(localStorage.getItem(nodesKey) || "[]");
-    const edges = JSON.parse(localStorage.getItem(edgesKey) || "[]");
-    const payload = { nodes, edges, exportedAt: new Date().toISOString() };
+    const nodesKey = storageKeys?.nodesKey || "savedNodes";
+    const edgesKey = storageKeys?.edgesKey || "savedEdges";
+
+    const lsNodes = JSON.parse(localStorage.getItem(nodesKey) || "[]");
+    const lsEdges = JSON.parse(localStorage.getItem(edgesKey) || "[]");
+
+    // Prefer live in‑memory state if supplied; otherwise use localStorage
+    const nodes = Array.isArray(liveNodes) && liveNodes.length ? liveNodes : lsNodes;
+    const edges = Array.isArray(liveEdges) && liveEdges.length ? liveEdges : lsEdges;
+
+    const payload = {
+      nodes: nodes.map(stripNode),
+      edges: edges.map(stripEdge),
+    };
+
     downloadBlob(JSON.stringify(payload, null, 2), "cld-nodes-edges.json");
   };
 
